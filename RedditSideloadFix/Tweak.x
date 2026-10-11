@@ -59,6 +59,17 @@ static void createDirectoryIfNotExists(NSURL *URL) {
 
 %end
 
+// App Attest proves to Reddit's servers which app is running, and the proof
+// names the team that signed it. A re-signed app gets a valid proof for the
+// wrong team: Reddit rejects it (register_device answers 400) and then refuses
+// the login (401). Where App Attest is unavailable, as in the simulator, the
+// app signs in without it, so it is reported as unavailable here.
+%hook DCAppAttestService
+- (BOOL)isSupported {
+  return NO;
+}
+%end
+
 static void loadKeychainAccessGroup() {
   NSDictionary *dummyItem = @{
     (__bridge id)kSecClass : (__bridge id)kSecClassGenericPassword,
