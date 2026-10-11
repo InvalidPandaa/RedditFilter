@@ -20,6 +20,7 @@
 
 #import <DeviceCheck/DeviceCheck.h>
 #import <Foundation/Foundation.h>
+#import <Security/Security.h>
 #import <objc/runtime.h>
 #import <os/log.h>
 
@@ -81,14 +82,13 @@ static NSString *RFErr(NSError *error) {
 
 #pragma mark - Auth-related network requests
 
+// Everything except media/CDN downloads. The login flow uses endpoints whose
+// names we don't know in advance, so a keyword filter misses them.
 static BOOL RFIsInteresting(NSURL *url) {
   NSString *host = url.host.lowercaseString ?: @"";
-  NSString *path = url.path.lowercaseString ?: @"";
-  if ([host containsString:@"recaptcha"] || [host hasPrefix:@"accounts."]) return YES;
-  if (![host hasSuffix:@"reddit.com"]) return NO;
-  for (NSString *word in @[ @"attestation", @"login", @"auth", @"token", @"register", @"session" ])
-    if ([path containsString:word]) return YES;
-  return NO;
+  for (NSString *noise in @[ @"redd.it", @"redditmedia.com", @"redditstatic.com", @"googlevideo.com" ])
+    if ([host hasSuffix:noise]) return NO;
+  return host.length > 0;
 }
 
 // Header names only (never values) that hint at attestation or bot checks.
@@ -134,7 +134,9 @@ static NSString *RFHeaderNames(NSDictionary *headers) {
   NSURLRequest *request = self.originalRequest;
   SEL key = @selector(observeValueForKeyPath:ofObject:change:context:);
   if (request && RFIsInteresting(request.URL) && !objc_getAssociatedObject(self, key)) {
-    RFDLog(@"[net] -> %@ %@%@ reqHeaders=[%@]", request.HTTPMethod, request.URL.host, request.URL.path,
+    // The GraphQL operation name is a fixed label like "HomeFeedSdui", not user data.
+    RFDLog(@"[net] -> %@ %@%@ op=%@ reqHeaders=[%@]", request.HTTPMethod, request.URL.host, request.URL.path,
+           [request valueForHTTPHeaderField:@"X-APOLLO-OPERATION-NAME"] ?: @"-",
            RFHeaderNames(request.allHTTPHeaderFields));
     RFTaskObserver *observer = [RFTaskObserver new];
     objc_setAssociatedObject(self, key, observer, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
@@ -143,6 +145,27 @@ static NSString *RFHeaderNames(NSDictionary *headers) {
   %orig;
 }
 
+%end
+
+#pragma mark - Errors
+
+// Errors from the app's own SDKs (reCAPTCHA, auth, ...). The system domains
+// below fire constantly for unrelated reasons and would drown the log.
+%hook NSError
+- (instancetype)initWithDomain:(NSString *)domain code:(NSInteger)code userInfo:(NSDictionary *)userInfo {
+  static NSSet *ignored;
+  static dispatch_once_t once;
+  dispatch_once(&once, ^{
+    ignored = [NSSet setWithObjects:NSCocoaErrorDomain, NSURLErrorDomain, NSPOSIXErrorDomain,
+                                    @"kCFErrorDomainCFNetwork", @"NSXPCConnectionErrorDomain", nil];
+  });
+  if (domain && ![ignored containsObject:domain]) {
+    NSString *text = [userInfo[NSLocalizedDescriptionKey] description] ?: @"";
+    if (text.length > 160) text = [text substringToIndex:160];
+    RFDLog(@"[error] %@ %ld %@", domain, (long)code, text);
+  }
+  return %orig;
+}
 %end
 
 #pragma mark - Startup report
@@ -157,6 +180,13 @@ static NSString *RFHeaderNames(NSDictionary *headers) {
   RFDLog(@"[boot] bundle id on disk=%@ NSBundle=%@ CFBundle=%@ infoDictionary=%@", onDisk[@"CFBundleIdentifier"],
          NSBundle.mainBundle.bundleIdentifier, (__bridge NSString *)cfId,
          NSBundle.mainBundle.infoDictionary[@"CFBundleIdentifier"]);
+  // -25300 (not found) means the keychain works; -34018 means the app has no
+  // usable keychain entitlement, which breaks login regardless of anything else.
+  OSStatus keychain = SecItemCopyMatching((__bridge CFDictionaryRef) @{
+    (__bridge id)kSecClass : (__bridge id)kSecClassGenericPassword,
+    (__bridge id)kSecAttrService : @"com.redditfilter.debug.probe",
+  }, NULL);
+  RFDLog(@"[boot] keychain probe status=%d", (int)keychain);
   RFDLog(@"[boot] app %@ (%@), iOS %@", onDisk[@"CFBundleShortVersionString"], onDisk[@"CFBundleVersion"],
          NSProcessInfo.processInfo.operatingSystemVersionString);
 }
