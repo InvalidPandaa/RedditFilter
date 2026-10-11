@@ -2,6 +2,7 @@
 #import <ToggleImageTableViewCell.h>
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
+#import "DebugMenu.h"
 #import "JSONFilter.h"
 #import "Preferences.h"
 
@@ -222,6 +223,10 @@ extern "C" UIImage *iconWithName(NSString *iconName) {
   }];
   RFReloadPreferences();
 
+#if REDDITFILTER_DEBUG
+  // Debug builds only: launch with RF_NO_FILTER=1 to run the app without any filter hooks.
+  if (getenv("RF_NO_FILTER")) return;
+#endif
   %init;
   %init(SwiftClasses, Post = CoreClass(@"Post"), Comment = CoreClass(@"Comment"),
         ToggleImageTableViewCell = CoreClass(@"ToggleImageTableViewCell"));

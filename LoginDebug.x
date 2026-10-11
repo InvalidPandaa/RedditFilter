@@ -39,6 +39,10 @@ static NSString *RFErr(NSError *error) {
 
 #pragma mark - App Attest
 
+// Everything in this group can be switched off at launch with RF_NO_PROBES=1,
+// to check whether the hooks themselves change the app's behaviour.
+%group Probes
+
 %hook DCAppAttestService
 
 - (BOOL)isSupported {
@@ -147,6 +151,8 @@ static NSString *RFHeaderNames(NSDictionary *headers) {
 
 %end
 
+%end // group Probes
+
 #pragma mark - Errors
 
 // Errors from the app's own SDKs (reCAPTCHA, auth, ...). The system domains
@@ -172,6 +178,7 @@ static NSString *RFHeaderNames(NSDictionary *headers) {
 
 %ctor {
   %init;
+  if (!getenv("RF_NO_PROBES")) %init(Probes);
   // The Info.plist on disk is what the installer (SideStore) wrote; the
   // NSBundle getters are what RedditSideloadFix makes the app believe.
   NSString *plistPath = [NSBundle.mainBundle.bundlePath stringByAppendingPathComponent:@"Info.plist"];
