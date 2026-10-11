@@ -1,0 +1,4 @@
+{"data":{"popularV3":{"elements":{"edges":[
+  {"node":{"__typename":"CellGroup","groupId":"p1","recommendationContext":{"typeName":"SimilarSubredditRecommendationContext","typeIdentifier":"similar_subreddit"},"cells":[{"__typename":"TitleCell"}]}},
+  {"node":{"__typename":"CellGroup","groupId":"ad","adPayload":{"adLinkUrl":"https://example.com"},"cells":[{"__typename":"TitleCell"}]}}
+]}}}}

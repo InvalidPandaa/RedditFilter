@@ -1,0 +1,7 @@
+{"data":{"homeV3":{"elements":{"edges":[
+  {"node":{"__typename":"CellGroup","groupId":"organic","cells":[{"__typename":"TitleCell"},{"__typename":"ActionCell","isScoreHidden":false,"isAwardHidden":false,"goldenUpvoteInfo":{"isGildable":true}}]}},
+  {"node":{"__typename":"CellGroup","groupId":"ad","adPayload":{"adLinkUrl":"https://example.com"},"cells":[{"__typename":"TitleCell"}]}},
+  {"node":{"__typename":"CellGroup","groupId":"recommended","recommendationContext":{"typeName":"SimilarSubredditRecommendationContext","typeIdentifier":"similar_subreddit"},"cells":[{"__typename":"TitleCell"}]}},
+  {"node":{"__typename":"CellGroup","groupId":"popularFiller","recommendationContext":{"typeName":"PopularRecommendationContext","typeIdentifier":"global_popular_x"},"cells":[{"__typename":"TitleCell"}]}},
+  {"node":{"__typename":"CellGroup","groupId":"nullContext","recommendationContext":null,"cells":[{"__typename":"TitleCell"}]}}
+]}}}}

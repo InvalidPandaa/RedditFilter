@@ -1,0 +1,8 @@
+{"data":{"postInfoById":{"__typename":"SubredditPost","id":"t3_x","isNsfw":true,"awardings":[{"total":3}],"isGildable":true,"isScoreHidden":false,
+  "commentsPageAds":[{"__typename":"AdPost"}],
+  "commentForest":{"trees":[
+    {"node":{"__typename":"Comment","id":"t1_a","authorInfo":{"id":"t2_6l4z3"},"isInitiallyCollapsed":false,"awardings":[{"total":1}]}},
+    {"node":{"__typename":"Comment","id":"t1_b","authorInfo":{"id":"t2_other"},"isInitiallyCollapsed":false}},
+    {"node":{"__typename":"AdPost","id":"t3_ad"}},
+    {"node":null}
+  ]}}}}
