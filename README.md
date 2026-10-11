@@ -15,7 +15,7 @@ This is a fork of [NicholasBly/RedditFilter](https://github.com/NicholasBly/Redd
 | | |
 |---|---|
 | Reddit version | 2026.40.0 |
-| Simulator (iOS 27.0) | App starts, login with email and password works |
+| Simulator (iOS 27.0) | App starts; login works with email and password, and with Google (Google so far only checked with `RF_NO_FILTER=1 RF_NO_PROBES=1`) |
 | Sideloaded on a device | Builds; login not verified yet |
 
 Reddit changes its GraphQL schema regularly, so filters can stop working after an app update. `Tests/run.sh` and the debug menu are there to notice that quickly.
