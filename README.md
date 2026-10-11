@@ -26,6 +26,18 @@ This is a fork of [NicholasBly/RedditFilter](https://github.com/NicholasBly/Redd
 
 Reddit changes its GraphQL schema regularly, so filters can stop working after an app update. `Tests/run.sh` and the debug menu are there to notice that quickly.
 
+## Install
+
+The [releases](https://github.com/Vinceundco/RedditFilter/releases) contain the tweak only. They do not contain the Reddit app: it belongs to Reddit and may not be redistributed, so everyone has to bring their own decrypted Reddit IPA.
+
+| You have | Do this |
+|---|---|
+| A Mac | Build the patched IPA yourself, see [Build](#build). This is the tested way and the only one that sets everything up in one step. |
+| No Mac, or an injection tool you already use | Take `RedditFilter-sideload.zip` from the release and inject its contents into your decrypted Reddit IPA: both `.dylib` files, and `OpenInReddit.appex` into `PlugIns/` if you want the Safari extension. `RedditSideloadFix.dylib` is required for a sideloaded app. Not tested with any particular tool. |
+| A jailbroken device | Install the `.deb` (`iphoneos-arm` for rootful, `iphoneos-arm64` for rootless). |
+
+After installing, open the settings with a long press on the menu button (☰) of the profile screen.
+
 ## Requirements
 
 - macOS on Apple Silicon with Xcode and an iOS Simulator runtime at least as new as the SDK the Reddit app was built with (iOS 27.0 for Reddit 2026.40.0)
