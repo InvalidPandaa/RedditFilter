@@ -33,7 +33,7 @@ static id RFValueAtPath(id root, NSString *path) {
 }
 
 BOOL RFPrefsAnyEnabled(RFPrefs p) {
-  return p.promoted || p.recommended || p.nsfw || p.awards || p.scores || p.automod;
+  return p.promoted || p.recommended || p.nsfw || p.awards || p.scores || p.automod || p.classicViewer;
 }
 
 #pragma mark - Filtering single objects
@@ -242,6 +242,34 @@ static BOOL RFIsHomeFeed(NSString *op, NSDictionary *payload) {
   return NO;
 }
 
+#pragma mark - Experiments
+
+// Reddit rolls out UI changes as server-side experiments. The app asks which
+// ones this account is in; an experiment missing from the answer is off.
+//
+// These switch the full-screen media viewer to a vertical feed, where swiping
+// up shows the next post. Without them the viewer is the earlier one: swipe up
+// for the comments, sideways for the next post.
+static BOOL RFIsViewerRedesign(NSString *experiment) {
+  return [experiment hasPrefix:@"ios_fbp_reimagine"] || [experiment hasPrefix:@"ios_fbp_m2_m3"];
+}
+
+static NSData *RFFilteredExperiments(NSData *data, RFPrefs prefs) {
+  if (!prefs.classicViewer) return nil;
+  NSMutableDictionary *json = RFMutableDict([NSJSONSerialization JSONObjectWithData:data
+                                                                            options:NSJSONReadingMutableContainers
+                                                                              error:NULL]);
+  id list = RFValueAtPath(json, @"data.experimentVariants");
+  if (![list isKindOfClass:NSMutableArray.class]) return nil;
+  NSMutableArray *variants = list;
+  NSIndexSet *redesign = [variants indexesOfObjectsPassingTest:^BOOL(id variant, NSUInteger index, BOOL *stop) {
+    return RFIsViewerRedesign(RFString(RFDict(variant)[@"experimentName"]));
+  }];
+  if (!redesign.count) return nil;
+  [variants removeObjectsAtIndexes:redesign];
+  return [NSJSONSerialization dataWithJSONObject:json options:0 error:NULL];
+}
+
 // Telemetry and config calls that never contain posts: skip them before parsing.
 static NSSet<NSString *> *RFIgnoredOperations(void) {
   static NSSet *set;
@@ -249,7 +277,7 @@ static NSSet<NSString *> *RFIgnoredOperations(void) {
   dispatch_once(&once, ^{
     set = [[NSSet alloc] initWithObjects:
         @"GetAccount", @"FetchIdentityPreferences", @"DynamicConfigsByNames",
-        @"GetAllExperimentVariants", @"AdsOffRedditLocation", @"UserLocation",
+        @"AdsOffRedditLocation", @"UserLocation",
         @"CookiePreferences", @"FetchSubscribedSubreddits", @"AdsOffRedditPreferences",
         @"Age", @"RecommendedPrompts", @"EnrollInGamification", @"BadgeCounts",
         @"GetEligibleUXExperiences", @"GetUserAdEligibility", @"GoldBalances",
@@ -265,7 +293,9 @@ static NSSet<NSString *> *RFIgnoredOperations(void) {
 }
 
 NSData *RFFilteredResponseData(NSData *data, NSString *operationName, RFPrefs prefs) {
-  if (!data.length || [RFIgnoredOperations() containsObject:operationName]) return nil;
+  if (!data.length) return nil;
+  if ([operationName isEqualToString:@"GetAllExperimentVariants"]) return RFFilteredExperiments(data, prefs);
+  if ([RFIgnoredOperations() containsObject:operationName]) return nil;
 
   NSMutableDictionary *json = RFMutableDict([NSJSONSerialization JSONObjectWithData:data
                                                                             options:NSJSONReadingMutableContainers

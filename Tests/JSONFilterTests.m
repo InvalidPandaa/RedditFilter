@@ -88,7 +88,7 @@ static void TestComments(void) {
 }
 
 static void TestRobustness(void) {
-  RFPrefs all = {YES, YES, YES, YES, YES, YES};
+  RFPrefs all = {YES, YES, YES, YES, YES, YES, YES};
   for (NSString *text in @[ @"", @"not json", @"[]", @"{\"data\":null}", @"{\"errors\":[]}", @"{\"data\":{\"x\":null,\"y\":[null,1,\"s\"]}}" ]) {
     NSData *out = RFFilteredResponseData([text dataUsingEncoding:NSUTF8StringEncoding], @"Unknown", all);
     CHECK(out == nil, @"'%@' should pass through untouched", text);
@@ -100,6 +100,19 @@ static void TestRobustness(void) {
   NSData *out = RFFilteredResponseData([renamed dataUsingEncoding:NSUTF8StringEncoding], @"HomeFeedSdui", all);
   NSDictionary *json = out ? [NSJSONSerialization JSONObjectWithData:out options:0 error:NULL] : nil;
   CHECK([FeedNode(json, @"data.homeV4.elements.edges", @"ad")[@"cells"] count] == 0, @"fallback should filter a renamed feed");
+}
+
+static void TestExperiments(void) {
+  BOOL changed;
+  NSDictionary *json = Run(@"GetAllExperimentVariants", (RFPrefs){.classicViewer = YES}, &changed);
+  NSArray *names = [json valueForKeyPath:@"data.experimentVariants.experimentName"];
+  CHECK(changed, @"classic viewer should change the experiment list");
+  CHECK(names.count == 3, @"the three viewer redesign experiments should be removed, got %@", names);
+  CHECK([names containsObject:@"ios_screenshot_sharing"], @"unrelated experiments must stay");
+  CHECK([names containsObject:@"ios_fbp_flex_overlays"], @"other viewer experiments must stay");
+
+  Run(@"GetAllExperimentVariants", (RFPrefs){.promoted = YES}, &changed);
+  CHECK(!changed, @"experiments must stay untouched when classic viewer is off");
 }
 
 static void TestOperationName(void) {
@@ -118,6 +131,7 @@ int main(int argc, const char *argv[]) {
     TestPopularFeed();
     TestComments();
     TestRobustness();
+    TestExperiments();
     TestOperationName();
     printf(failures ? "%d check(s) FAILED\n" : "all checks passed\n", failures);
     return failures ? 1 : 0;

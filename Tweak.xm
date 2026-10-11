@@ -1,5 +1,4 @@
 #import <Comment.h>
-#import <ToggleImageTableViewCell.h>
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
 #import "DebugMenu.h"
@@ -21,6 +20,7 @@ extern "C" void RFReloadPreferences(void) {
   prefs.awards = [defaults boolForKey:kRedditFilterAwards];
   prefs.scores = [defaults boolForKey:kRedditFilterScores];
   prefs.automod = [defaults boolForKey:kRedditFilterAutoCollapseAutoMod];
+  prefs.classicViewer = [defaults boolForKey:kRedditFilterClassicViewer];
   globalPrefs = prefs;
   noTranslations = [defaults boolForKey:kRedditFilterNoTranslations];
 }
@@ -134,6 +134,41 @@ static NSURLRequest *RFRequestWithoutTranslations(NSURLRequest *request) {
   return changed;
 }
 
+#if REDDITFILTER_DEBUG
+// Debug builds only: launch with RF_DUMP_OP=<operation name> to save that
+// operation's latest response to tmp/rf-<operation name>.json in the app's
+// container. Responses can contain personal data; don't share the file blindly.
+static void RFDumpResponse(NSString *operation, NSData *data) {
+  const char *wanted = getenv("RF_DUMP_OP");
+  if (!wanted || ![operation isEqualToString:@(wanted)]) return;
+  NSString *name = [NSString stringWithFormat:@"rf-%@.json", operation];
+  [data writeToFile:[NSTemporaryDirectory() stringByAppendingPathComponent:name] atomically:YES];
+}
+
+// Debug builds only: launch with RF_DROP_EXP=<a,b,...> to remove every
+// experiment whose name contains one of these words from Reddit's experiment
+// list, to find out which experiment switches a feature on.
+static NSData *RFDropExperiments(NSString *operation, NSData *data) {
+  const char *words = getenv("RF_DROP_EXP");
+  if (!words || ![operation isEqualToString:@"GetAllExperimentVariants"]) return data;
+  NSMutableDictionary *json = [NSJSONSerialization JSONObjectWithData:data
+                                                              options:NSJSONReadingMutableContainers
+                                                                error:NULL];
+  NSMutableArray *variants = json[@"data"][@"experimentVariants"];
+  if (![variants isKindOfClass:NSMutableArray.class]) return data;
+  NSArray *dropped = [@(words) componentsSeparatedByString:@","];
+  for (NSInteger i = variants.count - 1; i >= 0; i--) {
+    NSString *name = variants[i][@"experimentName"];
+    for (NSString *word in dropped)
+      if ([name isKindOfClass:NSString.class] && [name containsString:word]) {
+        [variants removeObjectAtIndex:i];
+        break;
+      }
+  }
+  return [NSJSONSerialization dataWithJSONObject:json options:0 error:NULL] ?: data;
+}
+#endif
+
 %hook NSURLSession
 - (NSURLSessionDataTask *)dataTaskWithRequest:(NSURLRequest *)request {
   return %orig(RFRequestWithoutTranslations(request));
@@ -151,6 +186,10 @@ static NSURLRequest *RFRequestWithoutTranslations(NSURLRequest *request) {
   void (^filteringHandler)(NSData *, NSURLResponse *, NSError *) =
       ^(NSData *data, NSURLResponse *response, NSError *error) {
         if (!error && data.length) {
+#if REDDITFILTER_DEBUG
+          RFDumpResponse(RFOperationName(request), data);
+          data = RFDropExperiments(RFOperationName(request), data);
+#endif
           NSData *filtered = RFFilteredResponseData(data, RFOperationName(request), globalPrefs);
           if (filtered) data = filtered;
         }
@@ -197,38 +236,6 @@ static NSURLRequest *RFRequestWithoutTranslations(NSURLRequest *request) {
 }
 %end
 
-// Lays out the subtitle on RedditFilter's own toggle rows. Reddit's toggle
-// cells elsewhere in the app are left alone (they aren't tagged).
-%hook ToggleImageTableViewCell
-- (void)updateConstraints {
-  %orig;
-  if (!objc_getAssociatedObject(self, @selector(rfOwnedCell))) return;
-
-  NSArray<NSLayoutConstraint *> *constraints = objc_getAssociatedObject(self, @selector(rfSubtitleConstraints));
-  UILabel *detailLabel = [self respondsToSelector:@selector(imageLabelView)] ? [self imageLabelView].detailLabel
-                                                                              : [self detailLabel];
-  if (!constraints) {
-    Ivar stackIvar = class_getInstanceVariable(object_getClass(self), "horizontalStackView");
-    UIStackView *stack = [self respondsToSelector:@selector(imageLabelView)]
-                             ? [self imageLabelView].horizontalStackView
-                             : (stackIvar ? object_getIvar(self, stackIvar) : nil);
-    if (!stack || !detailLabel) return;
-    UIView *contentView = [self contentView];
-    constraints = @[
-      [detailLabel.heightAnchor constraintEqualToAnchor:stack.heightAnchor multiplier:0.33],
-      [stack.heightAnchor constraintEqualToAnchor:contentView.heightAnchor],
-      [stack.centerYAnchor constraintEqualToAnchor:contentView.centerYAnchor],
-    ];
-    objc_setAssociatedObject(self, @selector(rfSubtitleConstraints), constraints,
-                             OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-  }
-  // Rows get reused, so switch the constraints on/off to match this row.
-  BOOL hasSubtitle = detailLabel.text.length > 0;
-  if (hasSubtitle) [NSLayoutConstraint activateConstraints:constraints];
-  else [NSLayoutConstraint deactivateConstraints:constraints];
-}
-%end
-
 %end
 
 %ctor {
@@ -240,6 +247,7 @@ static NSURLRequest *RFRequestWithoutTranslations(NSURLRequest *request) {
     kRedditFilterScores : @NO,
     kRedditFilterAutoCollapseAutoMod : @NO,
     kRedditFilterNoTranslations : @NO,
+    kRedditFilterClassicViewer : @NO,
   }];
   RFReloadPreferences();
 
@@ -248,6 +256,5 @@ static NSURLRequest *RFRequestWithoutTranslations(NSURLRequest *request) {
   if (getenv("RF_NO_FILTER")) return;
 #endif
   %init;
-  %init(SwiftClasses, Post = CoreClass(@"Post"), Comment = CoreClass(@"Comment"),
-        ToggleImageTableViewCell = CoreClass(@"ToggleImageTableViewCell"));
+  %init(SwiftClasses, Post = CoreClass(@"Post"), Comment = CoreClass(@"Comment"));
 }

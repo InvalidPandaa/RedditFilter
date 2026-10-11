@@ -14,63 +14,56 @@ typedef struct {
   __unsafe_unretained NSString *key;
   __unsafe_unretained NSString *title;
   __unsafe_unretained NSString *subtitle; // nil for none
-  __unsafe_unretained NSString *icons;    // comma-separated, first icon found wins
+  __unsafe_unretained NSString *symbol;   // SF Symbol name
   BOOL switchOnMeansShow;                 // YES: switch ON shows the content (the saved setting is the opposite)
 } RFToggleRow;
 
 static const RFToggleRow kToggleRows[] = {
-    {kRedditFilterPromoted, @"Promoted", nil, @"rpl3/tag,icon_tag", YES},
-    {kRedditFilterRecommended, @"Recommended", nil, @"rpl3/spam,icon_spam", YES},
-    {kRedditFilterNSFW, @"NSFW", nil, @"rpl3/nsfw,icon_nsfw_outline,icon_nsfw", YES},
-    {kRedditFilterAwards, @"Awards", @"Show awards on posts and comments",
-     @"rpl3/award,icon_gift_fill,icon_award,icon-award-outline", YES},
-    {kRedditFilterScores, @"Scores", @"Show vote count on posts and comments", @"rpl3/upvote,icon_upvote", YES},
-    {kRedditFilterAutoCollapseAutoMod, @"AutoMod", @"Auto collapse AutoMod comments", @"rpl3/mod,icon_mod", NO},
+    {kRedditFilterPromoted, @"Promoted", nil, @"megaphone", YES},
+    {kRedditFilterRecommended, @"Recommended", nil, @"sparkles", YES},
+    {kRedditFilterNSFW, @"NSFW", nil, @"eye.slash", YES},
+    {kRedditFilterAwards, @"Awards", @"Show awards on posts and comments", @"rosette", YES},
+    {kRedditFilterScores, @"Scores", @"Show vote count on posts and comments", @"arrow.up", YES},
+    {kRedditFilterAutoCollapseAutoMod, @"AutoMod", @"Auto collapse AutoMod comments", @"shield", NO},
     // The rows from here on are shown in the App section.
-    {kRedditFilterNoTranslations, @"Translations", @"Let Reddit translate posts and comments",
-     @"rpl3/translate,icon_translate", YES},
+    {kRedditFilterNoTranslations, @"Translations", @"Let Reddit translate posts and comments", @"character.bubble", YES},
+    {kRedditFilterClassicViewer, @"Classic media viewer", @"Swipe up opens the comments", @"photo", NO},
 };
 static const NSInteger kToggleRowCount = sizeof(kToggleRows) / sizeof(kToggleRows[0]);
-static const NSInteger kAppToggleCount = 1;
+static const NSInteger kAppToggleCount = 2;
 static const NSInteger kFilterRowCount = kToggleRowCount - kAppToggleCount;
 
-#pragma mark - Cell helpers (fall back to plain UIKit if Reddit renames its classes)
-
-static UILabel *RFMainLabel(ImageLabelTableViewCell *cell) {
-  if ([cell respondsToSelector:@selector(mainLabel)]) return cell.mainLabel;
-  if ([cell respondsToSelector:@selector(imageLabelView)]) return cell.imageLabelView.mainLabel;
-  return cell.textLabel;
-}
-
-static UILabel *RFDetailLabel(ImageLabelTableViewCell *cell) {
-  if ([cell respondsToSelector:@selector(detailLabel)]) return cell.detailLabel;
-  if ([cell respondsToSelector:@selector(imageLabelView)]) return cell.imageLabelView.detailLabel;
-  return cell.detailTextLabel;
-}
-
-static UISwitch *RFSwitch(ToggleImageTableViewCell *cell) {
-  if ([cell respondsToSelector:@selector(accessorySwitch)]) return cell.accessorySwitch;
-  if ([cell.accessoryView isKindOfClass:UISwitch.class]) return (UISwitch *)cell.accessoryView;
-  UISwitch *toggle = [UISwitch new];
-  cell.accessoryView = toggle;
-  return toggle;
-}
-
-static void RFSetIcon(ImageLabelTableViewCell *cell, NSString *iconNames) {
-  UIImage *icon = nil;
-  for (NSString *name in [iconNames componentsSeparatedByString:@","])
-    if ((icon = iconWithName(name))) break;
-  if (!icon) return;
-  if ([icon respondsToSelector:@selector(imageScaledToSize:)]) icon = [icon imageScaledToSize:CGSizeMake(20, 20)];
-  icon = [icon imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-  if ([cell respondsToSelector:@selector(setDisplayImage:)]) cell.displayImage = icon;
-  else if ([cell respondsToSelector:@selector(imageLabelView)]) cell.imageLabelView.imageView.image = icon;
-  else cell.imageView.image = icon;
-}
+#pragma mark - Cell helpers
 
 static void RFApplyTheme(UIView *view, SEL setter, SEL themeGetter) {
   if ([view respondsToSelector:@selector(associatePropertySetter:withThemePropertyGetter:)])
     [view associatePropertySetter:setter withThemePropertyGetter:themeGetter];
+}
+
+static UIImage *RFBoxedImage(UIImage *image, CGFloat inset);
+
+// A row with a switch, in plain UIKit. Switches on this screen don't receive
+// taps (neither Reddit's nor UIKit's own; dragging works), so the switch only
+// displays the state and a tap anywhere on the row flips it. The tap
+// recognizer is added in -tableView:cellForRowAtIndexPath:.
+static UITableViewCell *RFToggleCell(UITableView *tableView) {
+  UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:kToggleCellID];
+  if (cell) return cell;
+  cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:kToggleCellID];
+  cell.selectionStyle = UITableViewCellSelectionStyleNone;
+  cell.accessoryView = [UISwitch new];
+  cell.accessoryView.userInteractionEnabled = NO;
+  cell.textLabel.font = [UIFont systemFontOfSize:16.0 weight:UIFontWeightMedium];
+  cell.detailTextLabel.font = [UIFont systemFontOfSize:13.0];
+  cell.detailTextLabel.numberOfLines = 0;
+  cell.textLabel.textColor = UIColor.labelColor;
+  cell.detailTextLabel.textColor = UIColor.secondaryLabelColor;
+  cell.imageView.tintColor = UIColor.labelColor;
+  RFApplyTheme(cell.textLabel, @selector(setTextColor:), @selector(bodyTextColor));
+  RFApplyTheme(cell.detailTextLabel, @selector(setTextColor:), @selector(metaTextColor));
+  RFApplyTheme(cell.imageView, @selector(setTintColor:), @selector(bodyTextColor));
+  RFApplyTheme(cell, @selector(setBackgroundColor:), @selector(bodyColor));
+  return cell;
 }
 
 // Section header/footer: a themed label inset like Reddit's own settings.
@@ -226,6 +219,7 @@ static UITableViewCell *RFAboutCell(UITableView *tableView, NSInteger index) {
 
 @interface FeedFilterSettingsViewController (RFCache)
 - (void)rfRefreshCacheSize;
+- (void)rfToggleChanged:(UISwitch *)sender;
 @end
 
 %subclass FeedFilterSettingsViewController : BaseTableViewController
@@ -233,8 +227,6 @@ static UITableViewCell *RFAboutCell(UITableView *tableView, NSInteger index) {
 - (void)viewDidLoad {
   %orig;
   self.title = @"RedditFilter";
-  Class toggleCellClass = CoreClass(@"ToggleImageTableViewCell") ?: UITableViewCell.class;
-  [self.tableView registerClass:toggleCellClass forCellReuseIdentifier:kToggleCellID];
 #if REDDITFILTER_DEBUG
   // Debug rows carry multi-line detail text, so let them self-size.
   self.tableView.estimatedRowHeight = 60.0;
@@ -282,28 +274,29 @@ static UITableViewCell *RFAboutCell(UITableView *tableView, NSInteger index) {
 #endif
   if (section == RFSectionApp && indexPath.row >= kAppToggleCount)
     return RFCacheCell(tableView, objc_getAssociatedObject(self, @selector(rfRefreshCacheSize)));
-  ToggleImageTableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:kToggleCellID
-                                                                   forIndexPath:indexPath];
+  UITableViewCell *cell = RFToggleCell(tableView);
   NSInteger index = section == RFSectionApp ? kFilterRowCount + indexPath.row : indexPath.row;
   if (index >= kToggleRowCount) return cell;
   const RFToggleRow *row = &kToggleRows[index];
 
-  RFMainLabel(cell).text = row->title;
-  RFDetailLabel(cell).text = row->subtitle;
-  RFSetIcon(cell, row->icons);
+  cell.textLabel.text = row->title;
+  cell.detailTextLabel.text = row->subtitle;
+  cell.imageView.image = RFBoxedImage([UIImage systemImageNamed:row->symbol], 6.0);
 
-  UISwitch *toggle = RFSwitch(cell);
+  UISwitch *toggle = (UISwitch *)cell.accessoryView;
   BOOL saved = [NSUserDefaults.standardUserDefaults boolForKey:row->key];
   toggle.on = row->switchOnMeansShow ? !saved : saved;
   toggle.tag = index;
-  // Only remove our own action (cells get reused), never Reddit's.
-  [toggle removeTarget:self action:NULL forControlEvents:UIControlEventAllEvents];
-  [toggle addTarget:self action:@selector(rfToggleChanged:) forControlEvents:UIControlEventValueChanged];
-
-  // Tag the cell so the layout fix in Tweak.xm applies to our rows only.
-  objc_setAssociatedObject(cell, @selector(rfOwnedCell), @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-  [cell setNeedsUpdateConstraints];
+  if (!cell.gestureRecognizers.count)
+    [cell addGestureRecognizer:[[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(rfRowTapped:)]];
   return cell;
+}
+
+%new
+- (void)rfRowTapped:(UITapGestureRecognizer *)recognizer {
+  UISwitch *toggle = (UISwitch *)((UITableViewCell *)recognizer.view).accessoryView;
+  [toggle setOn:!toggle.on animated:YES];
+  [self rfToggleChanged:toggle];
 }
 
 %new
@@ -382,7 +375,7 @@ static UITableViewCell *RFAboutCell(UITableView *tableView, NSInteger index) {
       text = @"Filter specific types of posts from your feed";
       break;
     case RFSectionApp:
-      text = @"Changes apply to content loaded from now on";
+      text = @"Restart the app to apply the media viewer";
       break;
     case RFSectionDebug:
       text = @"✓ resolved · ✗ broke (structural fallback is now filtering). "

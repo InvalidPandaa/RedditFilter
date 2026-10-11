@@ -5,6 +5,7 @@ An iOS tweak that filters unwanted content out of the official Reddit app: promo
 This is a fork of [NicholasBly/RedditFilter](https://github.com/NicholasBly/RedditFilter), which continues [level3tjg/RedditFilter](https://github.com/level3tjg/RedditFilter). It adds what is needed to build and test the tweak locally on a Mac:
 
 - a switch to turn off Reddit's automatic translations, and a "Clear cache" button
+- a switch for the classic media viewer: swipe up for the comments and sideways for the next post, instead of the vertical post feed
 - the settings open with a long press on the menu button (☰) of the profile screen
 - one-command IPA build from a decrypted Reddit IPA
 - running the patched app in the iOS Simulator on Apple Silicon
@@ -104,6 +105,15 @@ xcrun simctl spawn booted notifyutil -p com.redditfilter.debug.dump
 cat "$(xcrun simctl get_app_container booted com.reddit.Reddit data)/tmp/rf-ui-dump.txt"
 ```
 
+Two more environment variables help to find out how Reddit switches a feature on:
+
+```bash
+# Save an operation's latest response to tmp/rf-<name>.json in the app container (may contain personal data)
+SIMCTL_CHILD_RF_DUMP_OP=GetAllExperimentVariants xcrun simctl launch booted com.reddit.Reddit
+# Hide every experiment whose name contains one of these words from the app
+SIMCTL_CHILD_RF_DROP_EXP=ios_fbp_reimagine,ios_fbp_m2_m3 xcrun simctl launch booted com.reddit.Reddit
+```
+
 Two environment variables switch hooks off at launch, to check whether a problem is caused by the tweak itself:
 
 ```bash
@@ -116,7 +126,7 @@ SIMCTL_CHILD_RF_NO_PROBES=1 xcrun simctl launch booted com.reddit.Reddit   # no 
 | File | Purpose |
 |---|---|
 | `Tweak.xm` | Hooks `NSURLSession`: passes GraphQL responses through the filter and rewrites the translation header; hides awards and scores on models |
-| `JSONFilter.m` | The filter itself. Pure Foundation, no UIKit or Reddit classes |
+| `JSONFilter.m` | The filter itself, including the list of experiments removed for the classic media viewer. Pure Foundation, no UIKit or Reddit classes |
 | `Settings.x`, `ModMenu.x`, `FeedFilterSettingsViewController.x` | The two ways into the settings (button in Reddit's settings, long press on the profile menu button) and the settings screen |
 | `CacheCleaner.m` | Measures and empties the cache folder |
 | `DebugMenu.x`, `LoginDebug.x`, `UIDump.x` | Debug builds only |

@@ -13,6 +13,7 @@ typedef struct {
   BOOL awards;
   BOOL scores;
   BOOL automod;
+  BOOL classicViewer; // the media viewer as it was before the vertical post feed
 } RFPrefs;
 
 #ifdef __cplusplus

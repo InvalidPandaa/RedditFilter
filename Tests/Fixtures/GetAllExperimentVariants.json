@@ -1,0 +1,12 @@
+{
+  "data": {
+    "experimentVariants": [
+      {"__typename": "ExperimentVariant", "id": "1", "name": "enabled", "experimentName": "ios_screenshot_sharing", "version": "5", "parentHoldoutGroup": null},
+      {"__typename": "ExperimentVariant", "id": "2", "name": "no_hint", "experimentName": "ios_fbp_reimagine_m1", "version": "3", "parentHoldoutGroup": null},
+      {"__typename": "ExperimentVariant", "id": "3", "name": "ios_rpl_action_bar_refresh_2026", "experimentName": "ios_fbp_m2_m3_meg", "version": "1", "parentHoldoutGroup": null},
+      {"__typename": "ExperimentVariant", "id": "4", "name": "enabled", "experimentName": "ios_fbp_reimagine_gallery_chaning", "version": "2", "parentHoldoutGroup": null},
+      {"__typename": "ExperimentVariant", "id": "5", "name": "enabled", "experimentName": "ios_fbp_flex_overlays", "version": "2", "parentHoldoutGroup": null},
+      {"__typename": "ExperimentVariant", "id": "6", "name": "enabled", "experimentName": null, "version": "1", "parentHoldoutGroup": null}
+    ]
+  }
+}
