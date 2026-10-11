@@ -1,0 +1,86 @@
+name: Build IPA
+
+# Builds the patched Reddit IPA from a decrypted Reddit IPA that you provide,
+# and puts it into a draft release of your fork. A draft release is visible
+# only to you. See "Build without a Mac" in the README.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ipa_url:
+        description: "Direct download URL of your decrypted Reddit IPA"
+        required: true
+        type: string
+      debug:
+        description: "Debug build (debug menu and diagnostics)"
+        default: false
+        type: boolean
+      remove_extensions:
+        description: "Leave out Reddit's own app extensions (saves App IDs)"
+        default: false
+        type: boolean
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-latest
+    permissions:
+      contents: write # to create the draft release
+    env:
+      THEOS: ${{ github.workspace }}/theos
+
+    steps:
+      - name: Download IPA
+        env:
+          IPA_URL: ${{ inputs.ipa_url }}
+        run: |
+          echo "::add-mask::$IPA_URL" # keep the link out of the public log
+          curl -fsSL "$IPA_URL" -o "$RUNNER_TEMP/Reddit.ipa"
+          unzip -tq "$RUNNER_TEMP/Reddit.ipa" > /dev/null ||
+            { echo "::error::The download is not an IPA. Use a direct link to the file, not to a web page."; exit 1; }
+
+      - uses: actions/checkout@v4
+        with:
+          path: RedditFilter
+
+      - name: Install dependencies
+        run: brew install ldid dpkg xz xmlstarlet libplist
+
+      - name: Set up Theos
+        run: |
+          git clone --quiet --depth=1 --recurse-submodules https://github.com/theos/theos.git "$THEOS"
+          git clone --quiet --depth=1 --recurse-submodules https://github.com/level3tjg/theos-jailed.git
+          # Only the module is needed; the installer would also fetch Cydia Substrate, which this tweak does not use.
+          cp -a theos-jailed/module "$THEOS/mod/jailed"
+
+      - name: Build IPA
+        working-directory: RedditFilter
+        env:
+          REMOVE_EXTENSIONS: ${{ inputs.remove_extensions && '1' || '0' }}
+        run: scripts/build-ipa.sh "$RUNNER_TEMP/Reddit.ipa" ${{ inputs.debug && 'debug' || '' }}
+
+      - name: Name the release
+        id: name
+        working-directory: RedditFilter
+        run: |
+          ipa=$(ls packages/*.ipa)
+          version=$(basename "$ipa" .ipa | cut -d_ -f2)
+          if [ "${{ inputs.debug }}" = "true" ]; then
+            mv "$ipa" "${ipa%.ipa}_debug.ipa"
+            version="$version-debug"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Create draft release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          tag_name: v${{ steps.name.outputs.version }}
+          name: RedditFilter ${{ steps.name.outputs.version }}
+          body: |
+            Built by the "Build IPA" workflow. This draft is visible only to you.
+            Keep it a draft: the IPA contains the Reddit app, which may not be redistributed.
+          files: RedditFilter/packages/*.ipa

@@ -33,7 +33,8 @@ The [releases](https://github.com/Vinceundco/RedditFilter/releases) contain the 
 | You have | Do this |
 |---|---|
 | A Mac | Build the patched IPA yourself, see [Build](#build). This is the tested way and the only one that sets everything up in one step. |
-| No Mac, or an injection tool you already use | Take `RedditFilter-sideload.zip` from the release and inject its contents into your decrypted Reddit IPA: both `.dylib` files, and `OpenInReddit.appex` into `PlugIns/` if you want the Safari extension. `RedditSideloadFix.dylib` is required for a sideloaded app. Not tested with any particular tool. |
+| No Mac | Fork this repository and let GitHub build the IPA, see [Build without a Mac](#build-without-a-mac). |
+| An injection tool you already use | Take `RedditFilter-sideload.zip` from a release and inject its contents into your decrypted Reddit IPA: both `.dylib` files, and `OpenInReddit.appex` into `PlugIns/` if you want the Safari extension. `RedditSideloadFix.dylib` is required for a sideloaded app. Not tested with any particular tool. |
 | A jailbroken device | Install the `.deb` (`iphoneos-arm` for rootful, `iphoneos-arm64` for rootless). |
 
 After installing, open the settings with a long press on the menu button (☰) of the profile screen.
@@ -59,6 +60,17 @@ scripts/build-ipa.sh path/to/Reddit-Decrypted.ipa debug    # with debug menu and
 The patched IPA lands in `packages/`. It is unsigned; install it with SideStore, AltStore or a similar tool.
 
 The IPA contains the "Open in Reddit" Safari extension. For it to be installed, keep app extensions when SideStore asks; then switch it on under Settings → Apps → Safari → Extensions and allow it for reddit.com. Every extension uses up one of the App IDs of a free developer account, and Reddit's own five extensions do so too; `REMOVE_EXTENSIONS=1 scripts/build-ipa.sh ...` leaves those out and keeps only "Open in Reddit".
+
+### Build without a Mac
+
+GitHub can build the IPA for you:
+
+1. Fork this repository and enable workflows in the fork's **Actions** tab.
+2. Upload your decrypted Reddit IPA somewhere that gives you a direct download link.
+3. In **Actions**, choose **Build IPA** → **Run workflow** and paste the link.
+4. When the run has finished, the patched IPA is attached to a draft release under **Releases**.
+
+A draft release is visible only to you. Keep it that way: the IPA contains the Reddit app, which may not be redistributed. The link you paste is hidden in the log, but the file behind it is as public as the place you uploaded it to; delete it there afterwards.
 
 For a jailbroken device, `make package` (rootful) or `make package THEOS_PACKAGE_SCHEME=rootless` builds a `.deb` instead.
 
