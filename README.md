@@ -12,7 +12,7 @@ This is a fork of [NicholasBly/RedditFilter](https://github.com/NicholasBly/Redd
 - running the patched app in the iOS Simulator on Apple Silicon
 - unit tests for the filter logic that run natively on macOS
 - login diagnostics for debug builds
-- crash fixes in [RedditSideloadFix](https://github.com/Vinceundco/RedditSideloadFix)
+- crash fixes in RedditSideloadFix, which is now part of this repository
 
 ## Status
 
@@ -36,7 +36,7 @@ Reddit changes its GraphQL schema regularly, so filters can stop working after a
 ## Build
 
 ```bash
-git clone --recursive https://github.com/Vinceundco/RedditFilter
+git clone https://github.com/Vinceundco/RedditFilter
 cd RedditFilter
 scripts/build-ipa.sh path/to/Reddit-Decrypted.ipa          # release
 scripts/build-ipa.sh path/to/Reddit-Decrypted.ipa debug    # with debug menu and diagnostics
@@ -132,7 +132,7 @@ SIMCTL_CHILD_RF_NO_PROBES=1 xcrun simctl launch booted com.reddit.Reddit   # no 
 | `DrawerSections.x` | Removes hidden sections from the side menu's list before it is shown |
 | `CacheCleaner.m` | Measures and empties the cache folder |
 | `DebugMenu.x`, `LoginDebug.x`, `UIDump.x` | Debug builds only |
-| `RedditSideloadFix/` | Submodule. Makes the app work under a different bundle ID and team (keychain, app groups, reCAPTCHA) |
+| `RedditSideloadFix/` | Makes the app work under a different bundle ID and team (keychain, app groups, reCAPTCHA) |
 | `scripts/` | IPA build and simulator conversion |
 
 The tweak uses the Logos `internal` generator, so it only needs the Objective-C runtime and no Substrate.
