@@ -8,6 +8,7 @@ This is a fork of [NicholasBly/RedditFilter](https://github.com/NicholasBly/Redd
 - a switch for the classic media viewer: swipe up for the comments and sideways for the next post, instead of the vertical post feed
 - a switch to play Redgifs posts with sound: Reddit's own copy of these videos has no sound track, so the stream is taken from Redgifs when it is available and has sound
 - switches to hide the "Games on Reddit", "Resources" and "Reddit Pro" sections of the side menu
+- an "Open in Reddit" Safari extension that sends Reddit links opened in Safari on to the app (a sideloaded app cannot claim reddit.com links itself)
 - the settings open with a long press on the menu button (☰) of the profile screen
 - one-command IPA build from a decrypted Reddit IPA
 - running the patched app in the iOS Simulator on Apple Silicon
@@ -44,6 +45,8 @@ scripts/build-ipa.sh path/to/Reddit-Decrypted.ipa debug    # with debug menu and
 ```
 
 The patched IPA lands in `packages/`. It is unsigned; install it with SideStore, AltStore or a similar tool.
+
+The IPA contains the "Open in Reddit" Safari extension. For it to be installed, keep app extensions when SideStore asks; then switch it on under Settings → Apps → Safari → Extensions and allow it for reddit.com. Every extension uses up one of the App IDs of a free developer account, and Reddit's own five extensions do so too; `REMOVE_EXTENSIONS=1 scripts/build-ipa.sh ...` leaves those out and keeps only "Open in Reddit".
 
 For a jailbroken device, `make package` (rootful) or `make package THEOS_PACKAGE_SCHEME=rootless` builds a `.deb` instead.
 
@@ -137,6 +140,7 @@ SIMCTL_CHILD_RF_NO_PROBES=1 xcrun simctl launch booted com.reddit.Reddit   # no 
 | `DrawerSections.x` | Removes hidden sections from the side menu's list before it is shown |
 | `CacheCleaner.m` | Measures and empties the cache folder |
 | `DebugMenu.x`, `LoginDebug.x`, `UIDump.x` | Debug builds only |
+| `SafariExtension/` | The "Open in Reddit" Safari extension: a script that redirects reddit.com pages to `reddit://` links, and the native stub Safari requires |
 | `RedditSideloadFix/` | Makes the app work under a different bundle ID and team (keychain, app groups, reCAPTCHA) |
 | `scripts/` | IPA build and simulator conversion |
 

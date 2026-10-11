@@ -31,6 +31,8 @@ ifeq ($(DEBUG_MENU),1)
   $(TWEAK_NAME)_CFLAGS += -DREDDITFILTER_DEBUG=1
 endif
 $(TWEAK_NAME)_INJECT_DYLIBS = $(THEOS_OBJ_DIR)/RedditSideloadFix.dylib
+# "Open in Reddit" Safari extension, built by scripts/build-safari-extension.sh
+$(TWEAK_NAME)_EMBED_EXTENSIONS = $(wildcard build/OpenInReddit.appex)
 
 ifeq ($(SIDELOADED),1)
   SUBPROJECTS += RedditSideloadFix

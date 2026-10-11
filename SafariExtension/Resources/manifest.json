@@ -1,0 +1,13 @@
+{
+  "manifest_version": 2,
+  "name": "Open in Reddit",
+  "description": "Opens Reddit links in the Reddit app instead of Safari.",
+  "version": "1.0",
+  "content_scripts": [
+    {
+      "matches": ["*://*.reddit.com/*", "*://redd.it/*"],
+      "js": ["open-in-app.js"],
+      "run_at": "document_start"
+    }
+  ]
+}

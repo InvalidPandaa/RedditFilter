@@ -2,7 +2,8 @@
 # Turns the patched device app (output of `make package SIDELOADED=1 ...`) into
 # one the iOS Simulator on Apple Silicon will load: every Mach-O gets its
 # platform switched from iOS to iOS Simulator and is re-signed ad hoc.
-# App extensions are dropped; they are not needed to test the feed or settings.
+# Reddit's app extensions are dropped; they are not needed to test the feed or
+# settings. The "Open in Reddit" Safari extension is rebuilt for the simulator.
 #
 # Usage: scripts/make-sim-app.sh [path/to/RedditApp.app]   -> build/sim/RedditApp.app
 set -euo pipefail
@@ -35,11 +36,14 @@ while IFS= read -r -d '' file; do
   count=$((count + 1))
 done < <(find "$out" -type f \( -perm -u+x -o -name '*.dylib' \) -print0)
 
+scripts/build-safari-extension.sh "$out" sim
+mkdir -p "$out/PlugIns" && mv build/sim/OpenInReddit.appex "$out/PlugIns/"
+
 exe="$out/$(plutil -extract CFBundleExecutable raw "$out/Info.plist")"
 scripts/add-sim-entitlements.py "$exe" build/sim/entitlements.xml build/sim/entitlements.der
 
 # Sign inside out: nested code first, the app bundle last.
-find "$out" -depth \( -name '*.dylib' -o -name '*.framework' \) -print0 | xargs -0 codesign -f -s - 2>/dev/null
+find "$out" -depth \( -name '*.dylib' -o -name '*.framework' -o -name '*.appex' \) -print0 | xargs -0 codesign -f -s - 2>/dev/null
 codesign -f -s - "$out"
 
 echo "converted $count binaries -> $out"

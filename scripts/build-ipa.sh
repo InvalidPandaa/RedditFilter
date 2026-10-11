@@ -13,4 +13,5 @@ version=$(unzip -p "$ipa" 'Payload/*.app/Info.plist' | plutil -extract CFBundleS
 debug=0
 [ "${2:-}" = "debug" ] && debug=1
 
+scripts/build-safari-extension.sh "$ipa"
 make clean package SIDELOADED=1 FINALPACKAGE=1 DEBUG_MENU=$debug IPA="$ipa" APP_VERSION="$version"
