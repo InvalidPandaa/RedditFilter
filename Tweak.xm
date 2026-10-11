@@ -10,6 +10,7 @@
 
 // Cached copy of the settings, read by the network hook on background threads.
 static RFPrefs globalPrefs;
+static BOOL noTranslations;
 
 extern "C" void RFReloadPreferences(void) {
   NSUserDefaults *defaults = NSUserDefaults.standardUserDefaults;
@@ -21,6 +22,7 @@ extern "C" void RFReloadPreferences(void) {
   prefs.scores = [defaults boolForKey:kRedditFilterScores];
   prefs.automod = [defaults boolForKey:kRedditFilterAutoCollapseAutoMod];
   globalPrefs = prefs;
+  noTranslations = [defaults boolForKey:kRedditFilterNoTranslations];
 }
 
 #pragma mark - Helpers shared with the settings screen
@@ -120,14 +122,31 @@ extern "C" UIImage *iconWithName(NSString *iconName) {
 
 #pragma mark - Network filtering
 
+// Reddit tells its servers with this header whether it wants posts and
+// comments machine-translated ("enabled" or "disabled").
+static NSString *const kTranslationsHeader = @"X-Reddit-Translations";
+
+static NSURLRequest *RFRequestWithoutTranslations(NSURLRequest *request) {
+  if (!noTranslations || ![[request valueForHTTPHeaderField:kTranslationsHeader] isEqualToString:@"enabled"])
+    return request;
+  NSMutableURLRequest *changed = [request mutableCopy];
+  [changed setValue:@"disabled" forHTTPHeaderField:kTranslationsHeader];
+  return changed;
+}
+
 %hook NSURLSession
+- (NSURLSessionDataTask *)dataTaskWithRequest:(NSURLRequest *)request {
+  return %orig(RFRequestWithoutTranslations(request));
+}
+
 - (NSURLSessionDataTask *)dataTaskWithRequest:(NSURLRequest *)request
                             completionHandler:(void (^)(NSData *data, NSURLResponse *response,
                                                         NSError *error))completionHandler {
+  request = RFRequestWithoutTranslations(request);
   NSString *host = request.URL.host;
   if (!completionHandler || !RFPrefsAnyEnabled(globalPrefs) ||
       !([host hasPrefix:@"gql"] || [host hasPrefix:@"oauth"]))
-    return %orig;
+    return %orig(request, completionHandler);
 
   void (^filteringHandler)(NSData *, NSURLResponse *, NSError *) =
       ^(NSData *data, NSURLResponse *response, NSError *error) {
@@ -220,6 +239,7 @@ extern "C" UIImage *iconWithName(NSString *iconName) {
     kRedditFilterAwards : @NO,
     kRedditFilterScores : @NO,
     kRedditFilterAutoCollapseAutoMod : @NO,
+    kRedditFilterNoTranslations : @NO,
   }];
   RFReloadPreferences();
 

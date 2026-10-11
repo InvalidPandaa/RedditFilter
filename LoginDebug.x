@@ -100,7 +100,13 @@ static NSString *RFHeaderNames(NSDictionary *headers) {
   NSMutableArray *names = [NSMutableArray array];
   for (NSString *name in headers) {
     NSString *lower = name.lowercaseString;
-    for (NSString *word in @[ @"attest", @"recaptcha", @"device", @"integrity", @"retry" ])
+    // On/off switches are shown with their value; they are settings, not secrets.
+    NSString *value = [headers[name] description];
+    if ([value isEqualToString:@"enabled"] || [value isEqualToString:@"disabled"]) {
+      [names addObject:[NSString stringWithFormat:@"%@=%@", name, value]];
+      continue;
+    }
+    for (NSString *word in @[ @"attest", @"recaptcha", @"device", @"integrity", @"retry", @"transl" ])
       if ([lower containsString:word]) {
         [names addObject:name];
         break;

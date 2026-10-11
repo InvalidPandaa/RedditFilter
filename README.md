@@ -4,6 +4,8 @@ An iOS tweak that filters unwanted content out of the official Reddit app: promo
 
 This is a fork of [NicholasBly/RedditFilter](https://github.com/NicholasBly/RedditFilter), which continues [level3tjg/RedditFilter](https://github.com/level3tjg/RedditFilter). It adds what is needed to build and test the tweak locally on a Mac:
 
+- a switch to turn off Reddit's automatic translations, and a "Clear cache" button
+- the settings open with a long press on the menu button (☰) of the profile screen
 - one-command IPA build from a decrypted Reddit IPA
 - running the patched app in the iOS Simulator on Apple Silicon
 - unit tests for the filter logic that run natively on macOS
@@ -51,6 +53,8 @@ xcrun simctl install booted build/sim/RedditApp.app
 xcrun simctl launch booted com.reddit.Reddit
 ```
 
+`scripts/run-sim.sh path/to/Reddit-Decrypted.ipa` does all four steps in one go and leaves out RedditSideloadFix.
+
 `make-sim-app.sh` takes the patched device app and makes it loadable by the simulator:
 
 1. switches every Mach-O from platform *iOS* to *iOS Simulator*,
@@ -91,7 +95,14 @@ xcrun simctl spawn booted log stream --predicate 'subsystem == "com.redditfilter
 | `[attest]` | App Attest calls and their results |
 | `[error]` | `NSError`s created by the app's SDKs (reCAPTCHA, auth, Firebase, ...) |
 
-Bodies and header values are never logged, so the log contains no passwords or tokens.
+Bodies and header values are never logged, so the log contains no passwords or tokens. The one exception are headers whose value is `enabled` or `disabled`, such as `X-Reddit-Translations`.
+
+The app exits under a debugger, so debug builds can write their view hierarchy to a file instead:
+
+```bash
+xcrun simctl spawn booted notifyutil -p com.redditfilter.debug.dump
+cat "$(xcrun simctl get_app_container booted com.reddit.Reddit data)/tmp/rf-ui-dump.txt"
+```
 
 Two environment variables switch hooks off at launch, to check whether a problem is caused by the tweak itself:
 
@@ -104,10 +115,11 @@ SIMCTL_CHILD_RF_NO_PROBES=1 xcrun simctl launch booted com.reddit.Reddit   # no 
 
 | File | Purpose |
 |---|---|
-| `Tweak.xm` | Hooks `NSURLSession` and passes GraphQL responses through the filter; hides awards and scores on models |
+| `Tweak.xm` | Hooks `NSURLSession`: passes GraphQL responses through the filter and rewrites the translation header; hides awards and scores on models |
 | `JSONFilter.m` | The filter itself. Pure Foundation, no UIKit or Reddit classes |
-| `Settings.x`, `FeedFilterSettingsViewController.x` | The RedditFilter button and settings screen |
-| `DebugMenu.x`, `LoginDebug.x` | Debug builds only |
+| `Settings.x`, `ModMenu.x`, `FeedFilterSettingsViewController.x` | The two ways into the settings (button in Reddit's settings, long press on the profile menu button) and the settings screen |
+| `CacheCleaner.m` | Measures and empties the cache folder |
+| `DebugMenu.x`, `LoginDebug.x`, `UIDump.x` | Debug builds only |
 | `RedditSideloadFix/` | Submodule. Makes the app work under a different bundle ID and team (keychain, app groups, reCAPTCHA) |
 | `scripts/` | IPA build and simulator conversion |
 

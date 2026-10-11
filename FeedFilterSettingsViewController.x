@@ -1,5 +1,6 @@
 #import <objc/runtime.h>
 #import "FeedFilterSettingsViewController.h"
+#import "CacheCleaner.h"
 #import "DebugMenu.h"
 #import "RFLogo.h"
 
@@ -7,7 +8,7 @@
 #define RF_VERSION "dev" // the Makefile passes the real version
 #endif
 
-#pragma mark - The filter rows
+#pragma mark - The toggle rows
 
 typedef struct {
   __unsafe_unretained NSString *key;
@@ -25,8 +26,13 @@ static const RFToggleRow kToggleRows[] = {
      @"rpl3/award,icon_gift_fill,icon_award,icon-award-outline", YES},
     {kRedditFilterScores, @"Scores", @"Show vote count on posts and comments", @"rpl3/upvote,icon_upvote", YES},
     {kRedditFilterAutoCollapseAutoMod, @"AutoMod", @"Auto collapse AutoMod comments", @"rpl3/mod,icon_mod", NO},
+    // The rows from here on are shown in the App section.
+    {kRedditFilterNoTranslations, @"Translations", @"Let Reddit translate posts and comments",
+     @"rpl3/translate,icon_translate", YES},
 };
 static const NSInteger kToggleRowCount = sizeof(kToggleRows) / sizeof(kToggleRows[0]);
+static const NSInteger kAppToggleCount = 1;
+static const NSInteger kFilterRowCount = kToggleRowCount - kAppToggleCount;
 
 #pragma mark - Cell helpers (fall back to plain UIKit if Reddit renames its classes)
 
@@ -100,15 +106,37 @@ static UIView *RFSectionView(UITableView *tableView, NSString *text, CGFloat hei
 
 #pragma mark - Sections
 
-typedef NS_ENUM(NSInteger, RFSection) { RFSectionFilters, RFSectionDebug, RFSectionAbout };
+typedef NS_ENUM(NSInteger, RFSection) { RFSectionFilters, RFSectionApp, RFSectionDebug, RFSectionAbout };
 
-// Filters, [Schema Paths (debug builds only)], About
-static const NSInteger kSectionCount = REDDITFILTER_DEBUG ? 3 : 2;
+// Filters, App, [Schema Paths (debug builds only)], About
+static const NSInteger kSectionCount = REDDITFILTER_DEBUG ? 4 : 3;
 
 static RFSection RFSectionAt(NSInteger section) {
   if (section == 0) return RFSectionFilters;
-  if (REDDITFILTER_DEBUG && section == 1) return RFSectionDebug;
+  if (section == 1) return RFSectionApp;
+  if (REDDITFILTER_DEBUG && section == 2) return RFSectionDebug;
   return RFSectionAbout;
+}
+
+#pragma mark - Clear cache row
+
+static UITableViewCell *RFCacheCell(UITableView *tableView, NSString *sizeText) {
+  static NSString *const kCacheCellID = @"RFCacheCell";
+  UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:kCacheCellID];
+  if (!cell) {
+    cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleValue1 reuseIdentifier:kCacheCellID];
+    cell.textLabel.textColor = UIColor.labelColor;
+    cell.detailTextLabel.textColor = UIColor.secondaryLabelColor;
+    cell.imageView.tintColor = UIColor.labelColor;
+    cell.imageView.image = [UIImage systemImageNamed:@"trash"];
+    RFApplyTheme(cell.textLabel, @selector(setTextColor:), @selector(bodyTextColor));
+    RFApplyTheme(cell.detailTextLabel, @selector(setTextColor:), @selector(metaTextColor));
+    RFApplyTheme(cell.imageView, @selector(setTintColor:), @selector(bodyTextColor));
+    RFApplyTheme(cell, @selector(setBackgroundColor:), @selector(bodyColor));
+  }
+  cell.textLabel.text = @"Clear cache";
+  cell.detailTextLabel.text = sizeText;
+  return cell;
 }
 
 #pragma mark - About section
@@ -196,6 +224,10 @@ static UITableViewCell *RFAboutCell(UITableView *tableView, NSInteger index) {
 @end
 #endif
 
+@interface FeedFilterSettingsViewController (RFCache)
+- (void)rfRefreshCacheSize;
+@end
+
 %subclass FeedFilterSettingsViewController : BaseTableViewController
 
 - (void)viewDidLoad {
@@ -212,6 +244,7 @@ static UITableViewCell *RFAboutCell(UITableView *tableView, NSInteger index) {
 
 - (void)viewWillAppear:(BOOL)animated {
   %orig;
+  [self rfRefreshCacheSize];
 #if REDDITFILTER_DEBUG
   // Stats accrue while the app runs; refresh them each time the screen opens.
   [self.tableView reloadData];
@@ -226,7 +259,9 @@ static UITableViewCell *RFAboutCell(UITableView *tableView, NSInteger index) {
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
   switch (RFSectionAt(section)) {
     case RFSectionFilters:
-      return kToggleRowCount;
+      return kFilterRowCount;
+    case RFSectionApp:
+      return kAppToggleCount + 1; // the toggles, then "Clear cache"
     case RFSectionDebug:
 #if REDDITFILTER_DEBUG
       // One row per tracked schema path, plus a trailing "reset" row.
@@ -245,10 +280,13 @@ static UITableViewCell *RFAboutCell(UITableView *tableView, NSInteger index) {
 #if REDDITFILTER_DEBUG
   if (section == RFSectionDebug) return [self debugCellForRow:indexPath.row inTableView:tableView];
 #endif
+  if (section == RFSectionApp && indexPath.row >= kAppToggleCount)
+    return RFCacheCell(tableView, objc_getAssociatedObject(self, @selector(rfRefreshCacheSize)));
   ToggleImageTableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:kToggleCellID
                                                                    forIndexPath:indexPath];
-  if (indexPath.row >= kToggleRowCount) return cell;
-  const RFToggleRow *row = &kToggleRows[indexPath.row];
+  NSInteger index = section == RFSectionApp ? kFilterRowCount + indexPath.row : indexPath.row;
+  if (index >= kToggleRowCount) return cell;
+  const RFToggleRow *row = &kToggleRows[index];
 
   RFMainLabel(cell).text = row->title;
   RFDetailLabel(cell).text = row->subtitle;
@@ -257,7 +295,7 @@ static UITableViewCell *RFAboutCell(UITableView *tableView, NSInteger index) {
   UISwitch *toggle = RFSwitch(cell);
   BOOL saved = [NSUserDefaults.standardUserDefaults boolForKey:row->key];
   toggle.on = row->switchOnMeansShow ? !saved : saved;
-  toggle.tag = indexPath.row;
+  toggle.tag = index;
   // Only remove our own action (cells get reused), never Reddit's.
   [toggle removeTarget:self action:NULL forControlEvents:UIControlEventAllEvents];
   [toggle addTarget:self action:@selector(rfToggleChanged:) forControlEvents:UIControlEventValueChanged];
@@ -280,9 +318,43 @@ static UITableViewCell *RFAboutCell(UITableView *tableView, NSInteger index) {
 %new
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
   [tableView deselectRowAtIndexPath:indexPath animated:YES];
+  if (RFSectionAt(indexPath.section) == RFSectionApp && indexPath.row >= kAppToggleCount) {
+    UIAlertController *alert =
+        [UIAlertController alertControllerWithTitle:@"Clear cache?"
+                                            message:@"Deletes downloaded images, videos and other temporary "
+                                                    @"files. You stay logged in and your settings are kept."
+                                     preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Clear"
+                                              style:UIAlertActionStyleDestructive
+                                            handler:^(UIAlertAction *action) {
+                                              dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+                                                RFClearCache();
+                                                dispatch_async(dispatch_get_main_queue(), ^{ [self rfRefreshCacheSize]; });
+                                              });
+                                            }]];
+    [self presentViewController:alert animated:YES completion:nil];
+    return;
+  }
   if (RFSectionAt(indexPath.section) != RFSectionAbout || indexPath.row >= kAboutRowCount) return;
   NSURL *url = [NSURL URLWithString:kAboutRows[indexPath.row].link];
   if (url) [UIApplication.sharedApplication openURL:url options:@{} completionHandler:nil];
+}
+
+// Measures the cache in the background, then shows the result in its row.
+%new
+- (void)rfRefreshCacheSize {
+  __weak FeedFilterSettingsViewController *weakSelf = self;
+  dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+    NSString *text = [NSByteCountFormatter stringFromByteCount:(long long)RFCacheSize()
+                                                    countStyle:NSByteCountFormatterCountStyleFile];
+    dispatch_async(dispatch_get_main_queue(), ^{
+      FeedFilterSettingsViewController *controller = weakSelf;
+      if (!controller) return;
+      objc_setAssociatedObject(controller, @selector(rfRefreshCacheSize), text, OBJC_ASSOCIATION_COPY_NONATOMIC);
+      [controller.tableView reloadData];
+    });
+  });
 }
 
 %new
@@ -290,6 +362,7 @@ static UITableViewCell *RFAboutCell(UITableView *tableView, NSInteger index) {
   NSString *text = nil;
   switch (RFSectionAt(section)) {
     case RFSectionFilters: text = @"FILTERS"; break;
+    case RFSectionApp: text = @"APP"; break;
     case RFSectionDebug: text = @"SCHEMA PATHS · DEBUG"; break;
     case RFSectionAbout: text = @"ABOUT"; break;
   }
@@ -307,6 +380,9 @@ static UITableViewCell *RFAboutCell(UITableView *tableView, NSInteger index) {
   switch (RFSectionAt(section)) {
     case RFSectionFilters:
       text = @"Filter specific types of posts from your feed";
+      break;
+    case RFSectionApp:
+      text = @"Changes apply to content loaded from now on";
       break;
     case RFSectionDebug:
       text = @"✓ resolved · ✗ broke (structural fallback is now filtering). "
