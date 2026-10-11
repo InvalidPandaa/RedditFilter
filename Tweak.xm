@@ -248,6 +248,9 @@ static NSData *RFDropExperiments(NSString *operation, NSData *data) {
     kRedditFilterAutoCollapseAutoMod : @NO,
     kRedditFilterNoTranslations : @NO,
     kRedditFilterClassicViewer : @NO,
+    kRedditFilterHideDrawerGames : @NO,
+    kRedditFilterHideDrawerResources : @NO,
+    kRedditFilterHideDrawerRedditPro : @NO,
   }];
   RFReloadPreferences();
 

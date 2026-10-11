@@ -6,6 +6,7 @@ This is a fork of [NicholasBly/RedditFilter](https://github.com/NicholasBly/Redd
 
 - a switch to turn off Reddit's automatic translations, and a "Clear cache" button
 - a switch for the classic media viewer: swipe up for the comments and sideways for the next post, instead of the vertical post feed
+- switches to hide the "Games on Reddit", "Resources" and "Reddit Pro" sections of the side menu
 - the settings open with a long press on the menu button (☰) of the profile screen
 - one-command IPA build from a decrypted Reddit IPA
 - running the patched app in the iOS Simulator on Apple Silicon
@@ -128,6 +129,7 @@ SIMCTL_CHILD_RF_NO_PROBES=1 xcrun simctl launch booted com.reddit.Reddit   # no 
 | `Tweak.xm` | Hooks `NSURLSession`: passes GraphQL responses through the filter and rewrites the translation header; hides awards and scores on models |
 | `JSONFilter.m` | The filter itself, including the list of experiments removed for the classic media viewer. Pure Foundation, no UIKit or Reddit classes |
 | `Settings.x`, `ModMenu.x`, `FeedFilterSettingsViewController.x` | The two ways into the settings (button in Reddit's settings, long press on the profile menu button) and the settings screen |
+| `DrawerSections.x` | Removes hidden sections from the side menu's list before it is shown |
 | `CacheCleaner.m` | Measures and empties the cache folder |
 | `DebugMenu.x`, `LoginDebug.x`, `UIDump.x` | Debug builds only |
 | `RedditSideloadFix/` | Submodule. Makes the app work under a different bundle ID and team (keychain, app groups, reCAPTCHA) |

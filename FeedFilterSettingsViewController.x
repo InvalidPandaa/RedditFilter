@@ -28,10 +28,15 @@ static const RFToggleRow kToggleRows[] = {
     // The rows from here on are shown in the App section.
     {kRedditFilterNoTranslations, @"Translations", @"Let Reddit translate posts and comments", @"character.bubble", YES},
     {kRedditFilterClassicViewer, @"Classic media viewer", @"Swipe up opens the comments", @"photo", NO},
+    // The rows from here on are shown in the Side menu section.
+    {kRedditFilterHideDrawerGames, @"Games on Reddit", nil, @"gamecontroller", YES},
+    {kRedditFilterHideDrawerResources, @"Resources", nil, @"square.grid.2x2", YES},
+    {kRedditFilterHideDrawerRedditPro, @"Reddit Pro", nil, @"chart.bar", YES},
 };
 static const NSInteger kToggleRowCount = sizeof(kToggleRows) / sizeof(kToggleRows[0]);
+static const NSInteger kFilterRowCount = 6;
 static const NSInteger kAppToggleCount = 2;
-static const NSInteger kFilterRowCount = kToggleRowCount - kAppToggleCount;
+static const NSInteger kMenuRowCount = kToggleRowCount - kFilterRowCount - kAppToggleCount;
 
 #pragma mark - Cell helpers
 
@@ -99,16 +104,30 @@ static UIView *RFSectionView(UITableView *tableView, NSString *text, CGFloat hei
 
 #pragma mark - Sections
 
-typedef NS_ENUM(NSInteger, RFSection) { RFSectionFilters, RFSectionApp, RFSectionDebug, RFSectionAbout };
+typedef NS_ENUM(NSInteger, RFSection) {
+  RFSectionFilters,
+  RFSectionApp,
+  RFSectionMenu,
+  RFSectionDebug,
+  RFSectionAbout
+};
 
-// Filters, App, [Schema Paths (debug builds only)], About
-static const NSInteger kSectionCount = REDDITFILTER_DEBUG ? 4 : 3;
+// Filters, App, Side menu, [Schema Paths (debug builds only)], About
+static const NSInteger kSectionCount = REDDITFILTER_DEBUG ? 5 : 4;
 
 static RFSection RFSectionAt(NSInteger section) {
   if (section == 0) return RFSectionFilters;
   if (section == 1) return RFSectionApp;
-  if (REDDITFILTER_DEBUG && section == 2) return RFSectionDebug;
+  if (section == 2) return RFSectionMenu;
+  if (REDDITFILTER_DEBUG && section == 3) return RFSectionDebug;
   return RFSectionAbout;
+}
+
+// Index into kToggleRows of the first toggle shown in a section.
+static NSInteger RFFirstToggle(RFSection section) {
+  if (section == RFSectionApp) return kFilterRowCount;
+  if (section == RFSectionMenu) return kFilterRowCount + kAppToggleCount;
+  return 0;
 }
 
 #pragma mark - Clear cache row
@@ -254,6 +273,8 @@ static UITableViewCell *RFAboutCell(UITableView *tableView, NSInteger index) {
       return kFilterRowCount;
     case RFSectionApp:
       return kAppToggleCount + 1; // the toggles, then "Clear cache"
+    case RFSectionMenu:
+      return kMenuRowCount;
     case RFSectionDebug:
 #if REDDITFILTER_DEBUG
       // One row per tracked schema path, plus a trailing "reset" row.
@@ -275,7 +296,7 @@ static UITableViewCell *RFAboutCell(UITableView *tableView, NSInteger index) {
   if (section == RFSectionApp && indexPath.row >= kAppToggleCount)
     return RFCacheCell(tableView, objc_getAssociatedObject(self, @selector(rfRefreshCacheSize)));
   UITableViewCell *cell = RFToggleCell(tableView);
-  NSInteger index = section == RFSectionApp ? kFilterRowCount + indexPath.row : indexPath.row;
+  NSInteger index = RFFirstToggle(section) + indexPath.row;
   if (index >= kToggleRowCount) return cell;
   const RFToggleRow *row = &kToggleRows[index];
 
@@ -356,6 +377,7 @@ static UITableViewCell *RFAboutCell(UITableView *tableView, NSInteger index) {
   switch (RFSectionAt(section)) {
     case RFSectionFilters: text = @"FILTERS"; break;
     case RFSectionApp: text = @"APP"; break;
+    case RFSectionMenu: text = @"SIDE MENU"; break;
     case RFSectionDebug: text = @"SCHEMA PATHS · DEBUG"; break;
     case RFSectionAbout: text = @"ABOUT"; break;
   }
@@ -376,6 +398,9 @@ static UITableViewCell *RFAboutCell(UITableView *tableView, NSInteger index) {
       break;
     case RFSectionApp:
       text = @"Restart the app to apply the media viewer";
+      break;
+    case RFSectionMenu:
+      text = @"Sections of the menu on the home screen";
       break;
     case RFSectionDebug:
       text = @"✓ resolved · ✗ broke (structural fallback is now filtering). "
