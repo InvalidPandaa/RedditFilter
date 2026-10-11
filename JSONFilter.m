@@ -33,7 +33,7 @@ static id RFValueAtPath(id root, NSString *path) {
 }
 
 BOOL RFPrefsAnyEnabled(RFPrefs p) {
-  return p.promoted || p.recommended || p.nsfw || p.awards || p.scores || p.automod || p.classicViewer;
+  return p.promoted || p.recommended || p.nsfw || p.awards || p.scores || p.automod || p.classicViewer || p.redgifsSound;
 }
 
 #pragma mark - Filtering single objects
@@ -270,6 +270,105 @@ static NSData *RFFilteredExperiments(NSData *data, RFPrefs prefs) {
   return [NSJSONSerialization dataWithJSONObject:json options:0 error:NULL];
 }
 
+#pragma mark - Redgifs sound
+
+// Reddit plays its own copy of a Redgifs video, and that copy has no sound
+// track. Redgifs itself offers the video with sound as an HLS stream, so the
+// stream address in the response is swapped for that one.
+
+static RFRedgifsResolver redgifsResolver;
+
+void RFSetRedgifsResolver(RFRedgifsResolver resolver) { redgifsResolver = [resolver copy]; }
+
+NSString *RFRedgifsID(NSString *link) {
+  NSURL *url = link ? [NSURL URLWithString:link] : nil;
+  NSString *host = url.host.lowercaseString;
+  if (![host isEqualToString:@"redgifs.com"] && ![host hasSuffix:@".redgifs.com"]) return nil;
+  NSArray<NSString *> *parts = url.pathComponents; // "/", "watch", "SomeId"
+  if (parts.count != 3 || !([parts[1] isEqualToString:@"watch"] || [parts[1] isEqualToString:@"ifr"])) return nil;
+  NSString *name = parts[2].lowercaseString;
+  NSCharacterSet *other = [NSCharacterSet characterSetWithCharactersInString:@"abcdefghijklmnopqrstuvwxyz0123456789"]
+                              .invertedSet;
+  NSRange end = [name rangeOfCharacterFromSet:other]; // some links carry "-tags" after the ID
+  if (end.location != NSNotFound) name = [name substringToIndex:end.location];
+  return name.length ? name : nil;
+}
+
+NSString *RFRedgifsStreamURL(NSString *redgifsID) {
+  return [NSString stringWithFormat:@"https://api.redgifs.com/v2/gifs/%@/hd.m3u8", redgifsID];
+}
+
+// A feed post: the link is in the metadata cell, the video in a cell of its own.
+static void RFCollectRedgifsCells(NSDictionary *group, NSMutableArray *targets) {
+  NSString *redgifsID = nil;
+  for (id cell in RFArray(group[@"cells"]))
+    if ((redgifsID = RFRedgifsID(RFString(RFDict(cell)[@"mediaPath"])))) break;
+  if (!redgifsID) return;
+  for (id item in RFArray(group[@"cells"])) {
+    NSMutableDictionary *cell = RFMutableDict(item);
+    if (cell[@"isGif"] && RFString(RFDict(cell[@"media"])[@"path"])) [targets addObject:@[ redgifsID, cell ]];
+  }
+}
+
+// Finds everything in a response that plays a Redgifs video.
+static void RFCollectRedgifs(id object, NSMutableArray *targets) {
+  if (RFArray(object)) {
+    for (id item in object) RFCollectRedgifs(item, targets);
+    return;
+  }
+  NSDictionary *dict = RFDict(object);
+  if (!dict) return;
+  RFCollectRedgifsCells(dict, targets);
+  // A post as used by the post page, the search and the media viewer.
+  NSMutableDictionary *media = RFMutableDict(dict[@"media"]);
+  NSString *redgifsID = RFRedgifsID(RFString(RFDict(media[@"video"])[@"url"]));
+  if (redgifsID && RFMutableDict(media[@"streaming"])) [targets addObject:@[ redgifsID, media ]];
+  for (id value in dict.allValues) RFCollectRedgifs(value, targets);
+}
+
+static void RFUseRedgifsStream(NSMutableDictionary *target, NSString *redgifsID) {
+  NSString *stream = RFRedgifsStreamURL(redgifsID);
+  NSMutableDictionary *streaming = RFMutableDict(target[@"streaming"]);
+  if (streaming) {
+    // Queries name the address differently ("hlsUrl", "url"), so go by its content.
+    for (NSString *key in streaming.allKeys)
+      if ([RFString(streaming[key]) containsString:@".m3u8"]) streaming[key] = stream;
+    streaming[@"isGif"] = @NO; // a "GIF" is played muted and without a sound button
+    if (streaming[@"hasAudio"]) streaming[@"hasAudio"] = @YES;
+  } else {
+    RFMutableDict(target[@"media"])[@"path"] = stream;
+    target[@"type"] = @"HLS";
+    target[@"isGif"] = @NO;
+  }
+  // Reddit's MP4 files of the same video, preferred over the stream when present.
+  if (target[@"packagedMedia"]) target[@"packagedMedia"] = [NSNull null];
+}
+
+static BOOL RFApplyRedgifsSound(NSMutableDictionary *json) {
+  if (!redgifsResolver) return NO;
+  NSMutableArray *targets = [NSMutableArray array];
+  RFCollectRedgifs(json[@"data"], targets);
+  if (!targets.count) return NO;
+  NSMutableSet *ids = [NSMutableSet set];
+  for (NSArray *target in targets) [ids addObject:target[0]];
+  NSSet *playable = redgifsResolver(ids);
+  BOOL changed = NO;
+  for (NSArray *target in targets) {
+    if (![playable containsObject:target[0]]) continue;
+    RFUseRedgifsStream(target[1], target[0]);
+    changed = YES;
+  }
+  return changed;
+}
+
+// Parsing is skipped for most responses that cannot contain a Redgifs post.
+static BOOL RFMentionsRedgifs(NSData *data) {
+  static NSData *needle;
+  static dispatch_once_t once;
+  dispatch_once(&once, ^{ needle = [@"redgifs.com" dataUsingEncoding:NSUTF8StringEncoding]; });
+  return [data rangeOfData:needle options:0 range:NSMakeRange(0, data.length)].location != NSNotFound;
+}
+
 // Telemetry and config calls that never contain posts: skip them before parsing.
 static NSSet<NSString *> *RFIgnoredOperations(void) {
   static NSSet *set;
@@ -304,7 +403,9 @@ NSData *RFFilteredResponseData(NSData *data, NSString *operationName, RFPrefs pr
   if (!payload) return nil; // not GraphQL, or an error response like {"data": null}
 
   RFContext ctx = {prefs, RFIsHomeFeed(operationName, payload)};
-  if (!RFFilterResponse(json, payload, operationName, &ctx)) return nil; // unchanged: skip re-encoding
+  BOOL changed = RFFilterResponse(json, payload, operationName, &ctx);
+  if (prefs.redgifsSound && RFMentionsRedgifs(data)) changed |= RFApplyRedgifsSound(json);
+  if (!changed) return nil; // unchanged: skip re-encoding
   return [NSJSONSerialization dataWithJSONObject:json options:0 error:NULL];
 }
 

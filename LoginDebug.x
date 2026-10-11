@@ -18,6 +18,7 @@
 
 #if REDDITFILTER_DEBUG
 
+#import <AVFoundation/AVFoundation.h>
 #import <DeviceCheck/DeviceCheck.h>
 #import <Foundation/Foundation.h>
 #import <Security/Security.h>
@@ -155,6 +156,26 @@ static NSString *RFHeaderNames(NSDictionary *headers) {
   %orig;
 }
 
+%end
+
+#pragma mark - Video playback
+
+// Which address a video is played from, and whether the player is muted.
+%hook AVURLAsset
+- (instancetype)initWithURL:(NSURL *)url options:(NSDictionary *)options {
+  // The query can hold signed tokens, so only the names of its items are shown.
+  NSArray *items = [[NSURLComponents componentsWithURL:url resolvingAgainstBaseURL:NO].queryItems valueForKey:@"name"];
+  RFDLog(@"[media] asset %@://%@%@ query=[%@]", url.scheme, url.host, url.path, [items componentsJoinedByString:@","]);
+  return %orig;
+}
+%end
+
+%hook AVPlayer
+- (void)setMuted:(BOOL)muted {
+  NSURL *url = [self.currentItem.asset isKindOfClass:AVURLAsset.class] ? ((AVURLAsset *)self.currentItem.asset).URL : nil;
+  RFDLog(@"[media] muted=%d %@%@", muted, url.host, url.path);
+  %orig;
+}
 %end
 
 %end // group Probes

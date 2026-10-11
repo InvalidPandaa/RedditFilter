@@ -8,6 +8,7 @@
 #define kRedditFilterAutoCollapseAutoMod @"kRedditFilterAutoCollapseAutoMod"
 #define kRedditFilterNoTranslations @"kRedditFilterNoTranslations"
 #define kRedditFilterClassicViewer @"kRedditFilterClassicViewer"
+#define kRedditFilterRedgifsSound @"kRedditFilterRedgifsSound"
 #define kRedditFilterHideDrawerGames @"kRedditFilterHideDrawerGames"
 #define kRedditFilterHideDrawerResources @"kRedditFilterHideDrawerResources"
 #define kRedditFilterHideDrawerRedditPro @"kRedditFilterHideDrawerRedditPro"

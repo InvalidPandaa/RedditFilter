@@ -1,0 +1,17 @@
+{"data":{"subredditV3":{"__typename":"Subreddit","elements":{"__typename":"FeedElementConnection","edges":[
+ {"node":{"__typename":"CellGroup","groupId":"redgifs","adPayload":null,"recommendationContext":null,"cells":[
+   {"__typename":"MetadataCell","mediaDomain":"redgifs","mediaPath":"https://www.redgifs.com/watch/PlayableWithSound"},
+   {"__typename":"TitleCell","title":"A Redgifs post"},
+   {"__typename":"LegacyVideoCell","isGif":true,"type":"HLS","videoIdentifier":"aaa",
+    "media":{"__typename":"CellMediaSource","path":"https://v.redd.it/aaa/HLSPlaylist.m3u8?f=hd"},
+    "preview":{"__typename":"CellMediaSource","path":"https://external-preview.redd.it/aaa.jpeg"},
+    "packagedMedia":{"__typename":"PackagedMedia","muxedMp4s":{"recommended":{"url":"https://packaged-media.redd.it/aaa/muxed.mp4"}}}}]}},
+ {"node":{"__typename":"CellGroup","groupId":"silent","adPayload":null,"recommendationContext":null,"cells":[
+   {"__typename":"MetadataCell","mediaDomain":"redgifs","mediaPath":"https://www.redgifs.com/watch/silentone"},
+   {"__typename":"LegacyVideoCell","isGif":true,"type":"HLS","videoIdentifier":"bbb",
+    "media":{"__typename":"CellMediaSource","path":"https://v.redd.it/bbb/HLSPlaylist.m3u8?f=hd"},"packagedMedia":null}]}},
+ {"node":{"__typename":"CellGroup","groupId":"reddit-video","adPayload":null,"recommendationContext":null,"cells":[
+   {"__typename":"MetadataCell","mediaDomain":null,"mediaPath":null},
+   {"__typename":"LegacyVideoCell","isGif":true,"type":"HLS","videoIdentifier":"ccc",
+    "media":{"__typename":"CellMediaSource","path":"https://v.redd.it/ccc/HLSPlaylist.m3u8?f=hd"},"packagedMedia":null}]}}
+]}}}}

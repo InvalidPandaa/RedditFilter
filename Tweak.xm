@@ -4,6 +4,7 @@
 #import "DebugMenu.h"
 #import "JSONFilter.h"
 #import "Preferences.h"
+#import "Redgifs.h"
 
 #pragma mark - Preferences
 
@@ -21,6 +22,7 @@ extern "C" void RFReloadPreferences(void) {
   prefs.scores = [defaults boolForKey:kRedditFilterScores];
   prefs.automod = [defaults boolForKey:kRedditFilterAutoCollapseAutoMod];
   prefs.classicViewer = [defaults boolForKey:kRedditFilterClassicViewer];
+  prefs.redgifsSound = [defaults boolForKey:kRedditFilterRedgifsSound];
   globalPrefs = prefs;
   noTranslations = [defaults boolForKey:kRedditFilterNoTranslations];
 }
@@ -145,6 +147,18 @@ static void RFDumpResponse(NSString *operation, NSData *data) {
   [data writeToFile:[NSTemporaryDirectory() stringByAppendingPathComponent:name] atomically:YES];
 }
 
+// Debug builds only: launch with RF_DUMP_MATCH=<word> to save the latest
+// response of every operation whose body contains that word, as
+// tmp/rf-match-<operation name>.json. Finds the operation that carries a field.
+static void RFDumpMatching(NSString *operation, NSData *data) {
+  const char *word = getenv("RF_DUMP_MATCH");
+  if (!word) return;
+  NSData *needle = [NSData dataWithBytes:word length:strlen(word)];
+  if ([data rangeOfData:needle options:0 range:NSMakeRange(0, data.length)].location == NSNotFound) return;
+  NSString *name = [NSString stringWithFormat:@"rf-match-%@.json", operation ?: @"unknown"];
+  [data writeToFile:[NSTemporaryDirectory() stringByAppendingPathComponent:name] atomically:YES];
+}
+
 // Debug builds only: launch with RF_DROP_EXP=<a,b,...> to remove every
 // experiment whose name contains one of these words from Reddit's experiment
 // list, to find out which experiment switches a feature on.
@@ -188,6 +202,7 @@ static NSData *RFDropExperiments(NSString *operation, NSData *data) {
         if (!error && data.length) {
 #if REDDITFILTER_DEBUG
           RFDumpResponse(RFOperationName(request), data);
+          RFDumpMatching(RFOperationName(request), data);
           data = RFDropExperiments(RFOperationName(request), data);
 #endif
           NSData *filtered = RFFilteredResponseData(data, RFOperationName(request), globalPrefs);
@@ -248,11 +263,13 @@ static NSData *RFDropExperiments(NSString *operation, NSData *data) {
     kRedditFilterAutoCollapseAutoMod : @NO,
     kRedditFilterNoTranslations : @NO,
     kRedditFilterClassicViewer : @NO,
+    kRedditFilterRedgifsSound : @NO,
     kRedditFilterHideDrawerGames : @NO,
     kRedditFilterHideDrawerResources : @NO,
     kRedditFilterHideDrawerRedditPro : @NO,
   }];
   RFReloadPreferences();
+  RFSetRedgifsResolver(^(NSSet<NSString *> *ids) { return RFPlayableRedgifs(ids); });
 
 #if REDDITFILTER_DEBUG
   // Debug builds only: launch with RF_NO_FILTER=1 to run the app without any filter hooks.

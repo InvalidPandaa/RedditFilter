@@ -1,0 +1,8 @@
+{"data":{"search":{"dynamic":{"components":{"main":{"edges":[{"node":{"__typename":"SearchListComponent","children":[
+ {"__typename":"SearchPost","post":{"__typename":"SubredditPost","id":"t3_redgifs","isNsfw":false,"media":{"__typename":"Media","typeHint":"EMBED",
+   "video":{"__typename":"VideoMedia","url":"https://www.redgifs.com/watch/playablewithsound","embedHtml":"<iframe src=\"https://www.redgifs.com/ifr/playablewithsound\"></iframe>"},
+   "streaming":{"__typename":"StreamingMedia","hlsUrl":"https://v.redd.it/aaa/HLSPlaylist.m3u8?f=hd","isGif":true,"duration":17,"scrubberMediaUrl":"https://v.redd.it/aaa/CMAF_96.mp4"},
+   "packagedMedia":{"__typename":"PackagedMedia","muxedMp4s":{"recommended":{"url":"https://packaged-media.redd.it/aaa/muxed.mp4"}}}}}},
+ {"__typename":"SearchPost","post":{"__typename":"SubredditPost","id":"t3_youtube","isNsfw":false,"media":{"__typename":"Media","typeHint":"EMBED",
+   "video":{"__typename":"VideoMedia","url":"https://www.youtube.com/watch?v=abc"},"streaming":null,"packagedMedia":null}}}
+]}}]}}}}}}

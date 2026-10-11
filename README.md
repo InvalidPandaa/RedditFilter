@@ -6,6 +6,7 @@ This is a fork of [NicholasBly/RedditFilter](https://github.com/NicholasBly/Redd
 
 - a switch to turn off Reddit's automatic translations, and a "Clear cache" button
 - a switch for the classic media viewer: swipe up for the comments and sideways for the next post, instead of the vertical post feed
+- a switch to play Redgifs posts with sound: Reddit's own copy of these videos has no sound track, so the stream is taken from Redgifs when it is available and has sound
 - switches to hide the "Games on Reddit", "Resources" and "Reddit Pro" sections of the side menu
 - the settings open with a long press on the menu button (☰) of the profile screen
 - one-command IPA build from a decrypted Reddit IPA
@@ -95,6 +96,7 @@ xcrun simctl spawn booted log stream --predicate 'subsystem == "com.redditfilter
 | `[boot]` | Bundle ID as seen through each API, keychain probe (`-25300` = working, `-34018` = no entitlement) |
 | `[net]` | Every request except media: method, host, path, HTTP status, names of attestation-related headers |
 | `[attest]` | App Attest calls and their results |
+| `[media]` | Address a video is played from, and when a player is muted or unmuted |
 | `[error]` | `NSError`s created by the app's SDKs (reCAPTCHA, auth, Firebase, ...) |
 
 Bodies and header values are never logged, so the log contains no passwords or tokens. The one exception are headers whose value is `enabled` or `disabled`, such as `X-Reddit-Translations`.
@@ -106,11 +108,13 @@ xcrun simctl spawn booted notifyutil -p com.redditfilter.debug.dump
 cat "$(xcrun simctl get_app_container booted com.reddit.Reddit data)/tmp/rf-ui-dump.txt"
 ```
 
-Two more environment variables help to find out how Reddit switches a feature on:
+Three more environment variables help to find out how Reddit switches a feature on:
 
 ```bash
 # Save an operation's latest response to tmp/rf-<name>.json in the app container (may contain personal data)
 SIMCTL_CHILD_RF_DUMP_OP=GetAllExperimentVariants xcrun simctl launch booted com.reddit.Reddit
+# Save the latest response of every operation that contains a word, as tmp/rf-match-<name>.json
+SIMCTL_CHILD_RF_DUMP_MATCH=redgifs xcrun simctl launch booted com.reddit.Reddit
 # Hide every experiment whose name contains one of these words from the app
 SIMCTL_CHILD_RF_DROP_EXP=ios_fbp_reimagine,ios_fbp_m2_m3 xcrun simctl launch booted com.reddit.Reddit
 ```
@@ -127,8 +131,9 @@ SIMCTL_CHILD_RF_NO_PROBES=1 xcrun simctl launch booted com.reddit.Reddit   # no 
 | File | Purpose |
 |---|---|
 | `Tweak.xm` | Hooks `NSURLSession`: passes GraphQL responses through the filter and rewrites the translation header; hides awards and scores on models |
-| `JSONFilter.m` | The filter itself, including the list of experiments removed for the classic media viewer. Pure Foundation, no UIKit or Reddit classes |
+| `JSONFilter.m` | The filter itself, including the list of experiments removed for the classic media viewer and the swap to the Redgifs stream. Pure Foundation, no UIKit or Reddit classes |
 | `Settings.x`, `ModMenu.x`, `FeedFilterSettingsViewController.x` | The two ways into the settings (button in Reddit's settings, long press on the profile menu button) and the settings screen |
+| `Redgifs.m`, `RedgifsViewer.x` | "Redgifs sound": checks which Redgifs videos are playable with sound, and stops the full-screen viewer from treating them as silent GIFs |
 | `DrawerSections.x` | Removes hidden sections from the side menu's list before it is shown |
 | `CacheCleaner.m` | Measures and empties the cache folder |
 | `DebugMenu.x`, `LoginDebug.x`, `UIDump.x` | Debug builds only |

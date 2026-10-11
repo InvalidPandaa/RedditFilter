@@ -115,6 +115,58 @@ static void TestExperiments(void) {
   CHECK(!changed, @"experiments must stay untouched when classic viewer is off");
 }
 
+static void TestRedgifs(void) {
+  CHECK([RFRedgifsID(@"https://www.redgifs.com/watch/SomeId") isEqualToString:@"someid"], @"watch link");
+  CHECK([RFRedgifsID(@"https://v3.redgifs.com/ifr/someid-tag-other") isEqualToString:@"someid"], @"embed link with tags");
+  CHECK(!RFRedgifsID(@"https://i.redgifs.com/i/someid.jpg"), @"images are not videos");
+  CHECK(!RFRedgifsID(@"https://notredgifs.com/watch/someid"), @"other hosts");
+  CHECK(!RFRedgifsID(@"https://www.youtube.com/watch?v=abc"), @"other sites");
+
+  __block NSSet *asked = nil;
+  RFSetRedgifsResolver(^(NSSet<NSString *> *ids) {
+    asked = ids;
+    return [NSSet setWithObject:@"playablewithsound"];
+  });
+  RFPrefs on = {.redgifsSound = YES};
+  NSString *stream = @"https://api.redgifs.com/v2/gifs/playablewithsound/hd.m3u8";
+  NSString *edges = @"data.subredditV3.elements.edges";
+
+  BOOL changed;
+  NSDictionary *json = Run(@"SubredditFeedSdui", on, &changed);
+  CHECK(changed, @"a playable Redgifs post should change the feed");
+  CHECK([asked isEqualToSet:([NSSet setWithObjects:@"playablewithsound", @"silentone", nil])], @"asked for %@", asked);
+  NSDictionary *video = FeedNode(json, edges, @"redgifs")[@"cells"][2];
+  CHECK([video[@"media"][@"path"] isEqual:stream], @"feed video should play from Redgifs, got %@", video[@"media"]);
+  CHECK([video[@"isGif"] isEqual:@NO], @"feed video must no longer be a silent GIF");
+  CHECK(video[@"packagedMedia"] == NSNull.null, @"Reddit's silent MP4s must go");
+  CHECK([video[@"preview"][@"path"] hasPrefix:@"https://external-preview"], @"the preview image stays");
+  video = FeedNode(json, edges, @"silent")[@"cells"][1];
+  CHECK([video[@"media"][@"path"] hasPrefix:@"https://v.redd.it/bbb"], @"an unplayable Redgifs post keeps Reddit's copy");
+  CHECK([video[@"isGif"] isEqual:@YES], @"an unplayable Redgifs post stays a GIF");
+  video = FeedNode(json, edges, @"reddit-video")[@"cells"][1];
+  CHECK([video[@"media"][@"path"] hasPrefix:@"https://v.redd.it/ccc"], @"other videos stay untouched");
+
+  json = Run(@"SearchDynamic", on, &changed);
+  NSArray *posts = [json valueForKeyPath:@"data.search.dynamic.components.main.edges"][0][@"node"][@"children"];
+  NSDictionary *media = posts[0][@"post"][@"media"];
+  CHECK(changed, @"a playable Redgifs post should change the search results");
+  CHECK([media[@"streaming"][@"hlsUrl"] isEqual:stream], @"post should play from Redgifs, got %@", media[@"streaming"]);
+  CHECK([media[@"streaming"][@"isGif"] isEqual:@NO], @"post must no longer be a silent GIF");
+  CHECK(media[@"packagedMedia"] == NSNull.null, @"Reddit's silent MP4s must go");
+  CHECK([media[@"video"][@"url"] hasPrefix:@"https://www.redgifs.com/watch/"], @"the link itself stays");
+  CHECK(posts[1][@"post"][@"media"][@"streaming"] == NSNull.null, @"other embeds stay untouched");
+
+  asked = nil;
+  Run(@"SubredditFeedSdui", (RFPrefs){.promoted = YES}, &changed);
+  CHECK(!changed && !asked, @"nothing happens while the setting is off");
+  Run(@"HomeFeedSdui", on, NULL);
+  CHECK(!asked, @"Redgifs is not asked about feeds without Redgifs posts");
+
+  RFSetRedgifsResolver(nil);
+  Run(@"SubredditFeedSdui", on, &changed);
+  CHECK(!changed, @"nothing happens without a resolver");
+}
+
 static void TestOperationName(void) {
   NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:@"https://gql-fed.reddit.com/?operationName=FromQuery"]];
   CHECK([RFOperationName(request) isEqualToString:@"FromQuery"], @"query item");
@@ -132,6 +184,7 @@ int main(int argc, const char *argv[]) {
     TestComments();
     TestRobustness();
     TestExperiments();
+    TestRedgifs();
     TestOperationName();
     printf(failures ? "%d check(s) FAILED\n" : "all checks passed\n", failures);
     return failures ? 1 : 0;
