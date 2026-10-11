@@ -15,6 +15,8 @@ out="build/sim/$(basename "$src")"
 rm -rf build/sim && mkdir -p build/sim
 cp -a "$src" "$out"
 rm -rf "$out/PlugIns" "$out/Extensions" "$out/Watch" "$out/_CodeSignature" "$out/SC_Info"
+# Files unpacked from a downloaded IPA are quarantined; the simulator refuses to spawn those.
+xattr -cr "$out"
 
 sdk=$(xcrun --sdk iphonesimulator --show-sdk-version)
 count=0
