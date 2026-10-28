@@ -99,7 +99,14 @@ Things to know:
 
 ## Browser login
 
-`BrowserLogin.x` replaces the app's login requests (`/auth/v2/login/*`) with a login on reddit.com in a web view; email, Google, Apple and two-factor all work there. Enter anything in the app's login form and tap log in: the web view opens, and the `reddit_session` cookie from it is handed to the app as the answer to its request. Untested on a device so far. Switch it off with `RF_NO_BROWSER_LOGIN=1`.
+`BrowserLogin.x` replaces the app's login requests (`/auth/v2/login/{password,sso,phone}`) with a login on reddit.com in a web view; email, Google, Apple and two-factor all work there.
+
+- When the app's login screen appears, the web view opens at once. After logging in, the screen is filled with dummy values and submitted; the app's login request is answered with the web session's `reddit_session` cookie and never leaves the device. If the automatic submit doesn't work, tap the login button yourself.
+- "Continue with Google/Apple" can't work in a re-signed app. They open the web view instead; afterwards open the email login and tap the login button.
+- The cookie is kept for ten minutes, so the web view opens once per login.
+- A floating **RF** button shows the in-app log (share, copy, clear, and "UI" for a dump of what is on screen). It lists screens, account requests with their status, and what the web view does; never passwords, cookies or bodies.
+
+Switch the replacement off with `RF_NO_BROWSER_LOGIN=1`.
 
 ## Login fails
 
