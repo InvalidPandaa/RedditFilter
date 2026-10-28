@@ -97,6 +97,10 @@ Things to know:
 - App Attest is unavailable in the simulator; Reddit falls back gracefully.
 - `RedditSideloadFix` is not needed in the simulator, because the bundle ID is unchanged there. Delete `build/sim/RedditApp.app/Frameworks/RedditSideloadFix.dylib` and re-run `codesign -f -s - build/sim/RedditApp.app` to test without it.
 
+## Browser login
+
+`BrowserLogin.x` replaces the app's login requests (`/auth/v2/login/*`) with a login on reddit.com in a web view; email, Google, Apple and two-factor all work there. Enter anything in the app's login form and tap log in: the web view opens, and the `reddit_session` cookie from it is handed to the app as the answer to its request. Untested on a device so far. Switch it off with `RF_NO_BROWSER_LOGIN=1`.
+
 ## Login fails
 
 On a sideloaded install Reddit's servers can refuse the login ("Something went wrong", HTTP 401 on `/auth/v2/login/password`), while the same account works in the App Store app. What helped here and for [others](https://github.com/level3tjg/RedditFilter/issues/52): log in over mobile data, for example with the device connected to a phone's hotspot. Once logged in, the session stays and Wi-Fi works as usual.
