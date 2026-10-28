@@ -39,6 +39,10 @@ static NSString *RFLogText(void) {
   }
 }
 
+@interface UIView (RFDump)
+- (NSString *)recursiveDescription;
+@end
+
 #pragma mark - Log viewer
 
 @interface RFLogViewController : UIViewController
@@ -102,9 +106,8 @@ static NSString *RFLogText(void) {
     if (![scene isKindOfClass:UIWindowScene.class]) continue;
     for (UIWindow *window in ((UIWindowScene *)scene).windows) {
       if ([window isKindOfClass:NSClassFromString(@"RFLogWindow")]) continue;
-      NSString *dump = [window respondsToSelector:NSSelectorFromString(@"recursiveDescription")]
-                           ? [window performSelector:NSSelectorFromString(@"recursiveDescription")]
-                           : window.description;
+      NSString *dump = [window respondsToSelector:@selector(recursiveDescription)] ? [window recursiveDescription]
+                                                                                  : window.description;
       RFAppLog(@"[ui] window %@\n%@", window.class, dump.length > 12000 ? [dump substringToIndex:12000] : dump);
     }
   }
