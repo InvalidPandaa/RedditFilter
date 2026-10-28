@@ -29,6 +29,7 @@ static const RFToggleRow kToggleRows[] = {
     {kRedditFilterNoTranslations, @"Translations", @"Let Reddit translate posts and comments", @"character.bubble", YES},
     {kRedditFilterClassicViewer, @"Classic media viewer", @"Swipe up opens the comments", @"photo", NO},
     {kRedditFilterRedgifsSound, @"Redgifs sound (beta)", @"Play Redgifs posts with sound", @"speaker.wave.2", NO},
+    {kRedditFilterKeepDeviceCheck, @"Login fix", @"Hide DeviceCheck so login works over Wi-Fi (sideloaded installs)", @"lock.shield", YES},
     // The rows from here on are shown in the Side menu section.
     {kRedditFilterHideDrawerGames, @"Games on Reddit", nil, @"gamecontroller", YES},
     {kRedditFilterHideDrawerResources, @"Resources", nil, @"square.grid.2x2", YES},
@@ -36,7 +37,7 @@ static const RFToggleRow kToggleRows[] = {
 };
 static const NSInteger kToggleRowCount = sizeof(kToggleRows) / sizeof(kToggleRows[0]);
 static const NSInteger kFilterRowCount = 6;
-static const NSInteger kAppToggleCount = 3;
+static const NSInteger kAppToggleCount = 4;
 static const NSInteger kMenuRowCount = kToggleRowCount - kFilterRowCount - kAppToggleCount;
 
 #pragma mark - Cell helpers
@@ -398,7 +399,7 @@ static UITableViewCell *RFAboutCell(UITableView *tableView, NSInteger index) {
       text = @"Filter specific types of posts from your feed";
       break;
     case RFSectionApp:
-      text = @"Restart the app to apply the media viewer";
+      text = @"Restart the app to apply the media viewer and the login fix";
       break;
     case RFSectionMenu:
       text = @"Sections of the menu on the home screen";

@@ -85,6 +85,27 @@ static NSString *RFErr(NSError *error) {
 
 %end
 
+// DeviceCheck (used by the reCAPTCHA SDK). With the login fix on,
+// RedditSideloadFix answers these, so the log shows what the app got.
+%hook DCDevice
+
+- (BOOL)isSupported {
+  BOOL supported = %orig;
+  RFDLog(@"[attest] DCDevice isSupported -> %d", supported);
+  return supported;
+}
+
+- (void)generateTokenWithCompletionHandler:(void (^)(NSData *token, NSError *error))handler {
+  RFDLog(@"[attest] DCDevice generateToken called");
+  void (^logged)(NSData *, NSError *) = ^(NSData *token, NSError *error) {
+    RFDLog(@"[attest] DCDevice generateToken -> %@ (%lu bytes)", RFErr(error), (unsigned long)token.length);
+    if (handler) handler(token, error);
+  };
+  %orig(logged);
+}
+
+%end
+
 #pragma mark - Auth-related network requests
 
 // Everything except media/CDN downloads. The login flow uses endpoints whose
