@@ -12,8 +12,6 @@
 #define kRedditFilterHideDrawerGames @"kRedditFilterHideDrawerGames"
 #define kRedditFilterHideDrawerResources @"kRedditFilterHideDrawerResources"
 #define kRedditFilterHideDrawerRedditPro @"kRedditFilterHideDrawerRedditPro"
-// YES turns the login fix in RedditSideloadFix off (it reads the same key by name).
-#define kRedditFilterKeepDeviceCheck @"kRedditFilterKeepDeviceCheck"
 
 #define kToggleCellID @"kToggleCellID"
 

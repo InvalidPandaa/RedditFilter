@@ -96,28 +96,6 @@ static void loadKeychainAccessGroup() {
 
 %end
 
-// DeviceCheck tokens are bound to the signing team as well. The reCAPTCHA SDK
-// sends one with the login; from a re-signed app it fails Google's check and
-// lowers the risk score. Reddit lets a low score through from mobile carrier
-// addresses but not from a home Wi-Fi address, which is why login only worked
-// over mobile data. Without DeviceCheck (as in the simulator) reCAPTCHA scores
-// the device without it. Can be switched off in the settings ("Login fix").
-%group DeviceCheckFix
-
-%hook DCDevice
-- (BOOL)isSupported {
-  return NO;
-}
-
-- (void)generateTokenWithCompletionHandler:(void (^)(NSData *token, NSError *error))completion {
-  // DCErrorDomain / DCErrorFeatureUnsupported, spelled out so the framework need not be linked.
-  NSError *error = [NSError errorWithDomain:@"com.apple.devicecheck.error" code:1 userInfo:nil];
-  if (completion) dispatch_async(dispatch_get_main_queue(), ^{ completion(nil, error); });
-}
-%end
-
-%end
-
 static OSStatus (*orig_SecItemAdd)(CFDictionaryRef, CFTypeRef *);
 static OSStatus hook_SecItemAdd(CFDictionaryRef attributes, CFTypeRef *result) {
   if (CFDictionaryContainsKey(attributes, kSecAttrAccessGroup)) {
@@ -205,11 +183,6 @@ static void initSideloadedFixes() {
       },
       4);
   %init(SideloadedFixes);
-  if (![NSUserDefaults.standardUserDefaults boolForKey:@"kRedditFilterKeepDeviceCheck"]) {
-    // Make sure DCDevice exists before hooking it, or the hook would be skipped silently.
-    dlopen("/System/Library/Frameworks/DeviceCheck.framework/DeviceCheck", RTLD_LAZY);
-    %init(DeviceCheckFix);
-  }
 }
 
 static NSString *originalBundleIdentifier;

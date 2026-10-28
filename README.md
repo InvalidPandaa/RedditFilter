@@ -22,7 +22,7 @@ This is a fork of [NicholasBly/RedditFilter](https://github.com/NicholasBly/Redd
 |---|---|
 | Reddit version | 2026.40.0 |
 | Simulator (iOS 27.0) | App starts; login works with email and password, and with Google (Google so far only checked with `RF_NO_FILTER=1 RF_NO_PROBES=1`) |
-| Sideloaded on a device | Runs on an iPad (iOS 27.0.1, SideStore). Login with email and password worked over a mobile hotspot, but not over Wi-Fi. The "Login fix" switch targets the Wi-Fi case and is not yet confirmed on a device; see [Login fails](#login-fails) |
+| Sideloaded on a device | Runs on an iPad (iOS 27.0.1, SideStore). Login with email and password worked over a mobile hotspot, but not over Wi-Fi; see [Login fails](#login-fails) |
 
 Reddit changes its GraphQL schema regularly, so filters can stop working after an app update. `Tests/run.sh` and the debug menu are there to notice that quickly.
 
@@ -102,8 +102,6 @@ Things to know:
 On a sideloaded install Reddit's servers can refuse the login ("Something went wrong", HTTP 401 on `/auth/v2/login/password`), while the same account works in the App Store app. What helped here and for [others](https://github.com/level3tjg/RedditFilter/issues/52): log in over mobile data, for example with the device connected to a phone's hotspot. Once logged in, the session stays and Wi-Fi works as usual.
 
 RedditSideloadFix reports App Attest as unavailable. A re-signed app gets an attestation for the wrong team, which Reddit rejects (`/auth/v1/attestation/register_device` answers 400). Whether the login over mobile data also works without this change has not been tested.
-
-RedditSideloadFix also reports DeviceCheck as unavailable ("Login fix" in the App section of the settings, on by default). DeviceCheck tokens are bound to the signing team like App Attest. The reCAPTCHA SDK sends one with the login, and from a re-signed app it fails Google's check. The suspicion is that Reddit tolerates the resulting low score from mobile carrier addresses but not from a home Wi-Fi address. Not yet confirmed on a device: if login over Wi-Fi still fails, the hotspot workaround above still applies, and a debug build's log (`[attest] DCDevice ...` and the `[net]` line for `/auth/v2/login/password`) helps to narrow it down. Switching the fix off takes effect after restarting the app.
 
 ## Tests
 
